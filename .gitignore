@@ -97,3 +97,9 @@ dkms.conf
 # Local History for Visual Studio Code
 .history/
 
+# Reference
+reference/*
+
+# Xmake
+.xmake/*
+build/*

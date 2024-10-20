@@ -5,8 +5,8 @@
 #include <implicit_arrangement.h>
 
 // Lookup table for simplicial arrangement
-extern std::vector<Arrangement3D> ia_data;
-extern std::vector<uint32_t>      ia_indices;
+extern std::vector<Arrangement3D>         ia_data;
+extern std::vector<uint32_t>              ia_indices;
 
 // For 1 plane arrangement lookup.
 uint32_t ia_compute_outer_index(const Plane3D& p0);

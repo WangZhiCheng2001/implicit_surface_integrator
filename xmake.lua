@@ -10,6 +10,7 @@ add_repositories("local-repo xmake")
 set_runtimes("MD") -- force /MD runtime for MSVC, since MKL only accepts /MD on windows
 
 includes("./3rdparty/xmake.lua")
+includes("./shared_module/xmake.lua")
 
 includes("./implicit_predicates/xmake.lua")
 includes("./implicit_arrangements/xmake.lua")

@@ -1,0 +1,6 @@
+rule("library.shared")
+    on_load(function (target)
+        target:set("kind", "shared")
+        target:add("defines", "SHARED_MODULE")
+    end)
+rule_end()

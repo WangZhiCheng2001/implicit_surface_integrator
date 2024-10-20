@@ -22,11 +22,11 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(size_t             resol
     mesh.vertices.resize(N * N * N);
     mesh.indices.resize(resolution * resolution * resolution * 5);
 
-    algorithm::for_loop<algorithm::ExecutionPolicySelector::unseq_only>(size_t{0}, N, [&](size_t i) {
+    algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t i) {
         const auto x = (aabb_max.x() - aabb_min.x()) * i / resolution + aabb_min.x();
-        algorithm::for_loop<algorithm::ExecutionPolicySelector::unseq_only>(size_t{0}, N, [&](size_t j) {
+        algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t j) {
             const auto y = (aabb_max.y() - aabb_min.y()) * j / resolution + aabb_min.y();
-            algorithm::for_loop<algorithm::ExecutionPolicySelector::unseq_only>(size_t{0}, N, [&](size_t k) {
+            algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t k) {
                 const auto z      = (aabb_max.z() - aabb_min.z()) * k / resolution + aabb_min.z();
                 const auto v0     = i * N * N + j * N + k;
                 mesh.vertices[v0] = {x, y, z};

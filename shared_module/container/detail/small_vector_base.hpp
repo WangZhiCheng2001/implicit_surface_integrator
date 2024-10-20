@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory>
 #include <optional>
+#include <initializer_list>
 
 #include "../static_vector.hpp"
 
@@ -135,8 +135,8 @@ public:
             else
                 m_heap.emplace(rhs);
             m_first    = m_heap->data();
-            m_size     = rhs.m_size;
-            rhs.m_size = 0;
+            m_size     = rhs.size();
+            // rhs.m_size = 0;
         }
         return *this;
     }

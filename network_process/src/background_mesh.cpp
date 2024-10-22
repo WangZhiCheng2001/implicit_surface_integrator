@@ -1,7 +1,7 @@
 #include <assert.h>
 
-#include <background_mesh.h>
-#include <glue/glue_algorithm.hpp>
+#include <background_mesh.hpp>
+#include <algorithm/glue_algorithm.hpp>
 
 struct TetrahedronVertexIndexGroup {
     size_t v00, v01, v02, v03;
@@ -22,9 +22,9 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(size_t             resol
     mesh.vertices.resize(N * N * N);
     mesh.indices.resize(resolution * resolution * resolution * 5);
 
-    algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t i) {
+    for (auto i = size_t{0}; i < N; ++i) {
         const auto x = (aabb_max.x() - aabb_min.x()) * i / resolution + aabb_min.x();
-        algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t j) {
+        for (auto j = size_t{0}; j < N; ++j) {
             const auto y = (aabb_max.y() - aabb_min.y()) * j / resolution + aabb_min.y();
             algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t k) {
                 const auto z      = (aabb_max.z() - aabb_min.z()) * k / resolution + aabb_min.z();
@@ -49,8 +49,8 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(size_t             resol
                                                                                       v0, v4, v7, v2, v6, v5, v0, v1, v2, v5};
                 }
             });
-        });
-    });
+        }
+    }
 
     return mesh;
 }

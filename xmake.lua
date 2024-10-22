@@ -12,7 +12,6 @@ set_runtimes("MD") -- force /MD runtime for MSVC, since MKL only accepts /MD on 
 includes("./3rdparty/xmake.lua")
 includes("./shared_module/xmake.lua")
 
-includes("./implicit_predicates/xmake.lua")
-includes("./implicit_arrangements/xmake.lua")
+includes("./implicit_**/xmake.lua")
 includes("./network_process/xmake.lua")
 includes("./application/**/xmake.lua")

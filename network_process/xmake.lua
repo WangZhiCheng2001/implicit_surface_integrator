@@ -1,9 +1,11 @@
 add_requires("eigen-latest")
 
 target("implicit_surface_network_process")
-    set_kind("object")
-    add_vectorexts("all")
+    set_kind("static")
+    add_defines("SHARED_MODULE=0")
+    add_rules("config.indirect_predicates.flags")
     add_includedirs("include", {public = true})
     add_files("src/*.cpp")
     add_packages("eigen-latest", {public = true})
+    add_deps("implicit_arrangements", "shared_module")
 target_end()

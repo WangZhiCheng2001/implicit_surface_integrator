@@ -54,7 +54,7 @@ Arrangement3D extract_arrangement(IAComplex<3>&& ia_complex)
     auto& faces  = ia_complex.faces;
     ia.num_faces = static_cast<uint32_t>(faces.size());
     ia.vertices  = static_cast<uint32_t**>(ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t*) * ia.num_faces));
-    ia.edge_vertices_count =
+    ia.face_vertices_count =
         static_cast<uint32_t*>(ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t) * ia.num_faces));
     ia.positive_cells = static_cast<uint32_t*>(ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t) * ia.num_faces));
     ia.negative_cells = static_cast<uint32_t*>(ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t) * ia.num_faces));
@@ -63,14 +63,14 @@ Arrangement3D extract_arrangement(IAComplex<3>&& ia_complex)
 
     for (size_t i = 0; i < ia.num_faces; i++) {
         auto& cf                  = faces[i];
-        ia.edge_vertices_count[i] = static_cast<uint32_t>(cf.edges.size());
-        ROBUST_ASSERT(ia.edge_vertices_count[i] >= 3);
+        ia.face_vertices_count[i] = static_cast<uint32_t>(cf.edges.size());
+        ROBUST_ASSERT(ia.face_vertices_count[i] >= 3);
         ia.vertices[i] = static_cast<uint32_t*>(
-            ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t) * ia.edge_vertices_count[i]));
+            ScalableMemoryPoolSingleton::instance().malloc(sizeof(uint32_t) * ia.face_vertices_count[i]));
 
-        for (size_t j = 0; j < ia.edge_vertices_count[i]; j++) {
+        for (size_t j = 0; j < ia.face_vertices_count[i]; j++) {
             auto& curr_e = edges[cf.edges[j]];
-            auto& next_e = edges[cf.edges[(j + 1) % ia.edge_vertices_count[i]]];
+            auto& next_e = edges[cf.edges[(j + 1) % ia.face_vertices_count[i]]];
             if (curr_e.vertices[0] == next_e.vertices[0] || curr_e.vertices[0] == next_e.vertices[1]) {
                 ia.vertices[i][j] = curr_e.vertices[0];
             } else {

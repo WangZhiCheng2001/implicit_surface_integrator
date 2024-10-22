@@ -42,7 +42,6 @@ struct Arrangement2D {
     uint32_t*  vertices; ///< An ordered list of boundary vertices. Edge is oriented such that the positive side of supporting
                          ///< line is one the right.
     // an 2D edge has restrictly 2 vertices
-    // uint32_t* edge_vertices_count; ///< The number of vertices in each edge.
     uint32_t*  supporting_lines; ///< A set of supporting lines' indices for each edge.
     uint32_t*  positive_cells;   ///<  A set of positive side cells' indices for each edge.
     uint32_t*  negative_cells;   ///<  A set of negative side cells' indices for each edge.
@@ -68,7 +67,7 @@ struct Arrangement3D {
     /* face descriptor */
     uint32_t** vertices; ///< An ordered list of boundary vertices. The face is always oriented counterclockwise when viewed
                          ///< from the positive side of the supporting plane.
-    uint32_t*  edge_vertices_count; ///< The number of vertices in each edge.
+    uint32_t*  face_vertices_count; ///< The number of vertices in each edge.
     uint32_t*  supporting_planes;   ///< A set of supporting planes' indices for each edge.
     uint32_t*  positive_cells;      ///<  A set of positive side cells' indices for each edge.
     uint32_t*  negative_cells;      ///<  A set of negative side cells' indices for each edge.
@@ -101,5 +100,5 @@ struct Arrangement3DResult {
 EXTERN_C API bool                load_lut();
 EXTERN_C API Arrangement2DResult compute_arrangement_2d(const Plane2D* planes, const uint32_t num_planes);
 EXTERN_C API Arrangement3DResult compute_arrangement_3d(const Plane3D* planes, const uint32_t num_planes);
-EXTERN_C API void                free_arrangement_2d(Arrangement2DResult* arr);
-EXTERN_C API void                free_arrangement_3d(Arrangement3DResult* arr);
+EXTERN_C API void                free_arrangement_2d(Arrangement2D* arr);
+EXTERN_C API void                free_arrangement_3d(Arrangement3D* arr);

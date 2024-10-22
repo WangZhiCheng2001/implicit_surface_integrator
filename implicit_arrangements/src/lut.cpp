@@ -111,7 +111,7 @@ EXTERN_C API bool load_lut()
 
         ia.num_faces           = ia_num_faces[i];
         ia.vertices            = ia_faces_ptr.data() + faces_offset;
-        ia.edge_vertices_count = ia_face_vertices_count.data() + faces_offset;
+        ia.face_vertices_count = ia_face_vertices_count.data() + faces_offset;
         ia.supporting_planes   = ia_supporting_planes.data() + faces_offset;
         ia.positive_cells      = ia_positive_cells.data() + faces_offset;
         ia.negative_cells      = ia_negative_cells.data() + faces_offset;

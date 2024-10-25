@@ -98,6 +98,7 @@ struct Arrangement3DResult {
 };
 
 EXTERN_C API bool                load_lut();
+EXTERN_C API void                lut_print_test();
 EXTERN_C API Arrangement2DResult compute_arrangement_2d(const Plane2D* planes, const uint32_t num_planes);
 EXTERN_C API Arrangement3DResult compute_arrangement_3d(const Plane3D* planes, const uint32_t num_planes);
 EXTERN_C API void                free_arrangement_2d(Arrangement2D* arr);

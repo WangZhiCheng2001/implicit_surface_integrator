@@ -14,4 +14,4 @@ includes("./shared_module/xmake.lua")
 
 includes("./implicit_**/xmake.lua")
 includes("./network_process/xmake.lua")
-includes("./application/**/xmake.lua")
+includes("./application/xmake.lua")

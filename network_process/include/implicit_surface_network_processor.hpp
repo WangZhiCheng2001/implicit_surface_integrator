@@ -11,7 +11,8 @@
 struct ImplicitSurfaceNetworkProcessor {
     ImplicitSurfaceNetworkProcessor() = default;
 
-    ImplicitSurfaceNetworkProcessor(const tetrahedron_mesh_t& background_mesh, const Eigen::MatrixXd& sdf_scalar_field)
+    ImplicitSurfaceNetworkProcessor(const tetrahedron_mesh_t&                background_mesh,
+                                    const Eigen::Ref<const Eigen::MatrixXd>& sdf_scalar_field)
         : background_mesh(background_mesh), sdf_scalar_field(sdf_scalar_field)
     {
     }

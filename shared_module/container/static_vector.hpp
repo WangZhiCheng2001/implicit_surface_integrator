@@ -406,7 +406,7 @@ public:
 
     void resize(size_type count)
     {
-        assert(count < max_size());
+        assert(count <= max_size());
 
         if (count > m_size)
             std::uninitialized_default_construct(end(), begin() + count);
@@ -418,7 +418,7 @@ public:
 
     void resize(size_type count, const T& value)
     {
-        assert(count < max_size());
+        assert(count <= max_size());
 
         if (count > m_size)
             std::uninitialized_fill(end(), begin() + count, value);

@@ -4,30 +4,30 @@
 #include <algorithm/glue_algorithm.hpp>
 
 struct TetrahedronVertexIndexGroup {
-    size_t v00, v01, v02, v03;
-    size_t v10, v11, v12, v13;
-    size_t v20, v21, v22, v23;
-    size_t v30, v31, v32, v33;
-    size_t v40, v41, v42, v43;
+    uint32_t v00, v01, v02, v03;
+    uint32_t v10, v11, v12, v13;
+    uint32_t v20, v21, v22, v23;
+    uint32_t v30, v31, v32, v33;
+    uint32_t v40, v41, v42, v43;
 };
 
-tetrahedron_mesh_t generate_tetrahedron_background_mesh(size_t             resolution,
-                                                        const raw_point_t& aabb_min,
-                                                        const raw_point_t& aabb_max)
+tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                             resolution,
+                                                        const Eigen::Ref<const raw_point_t>& aabb_min,
+                                                        const Eigen::Ref<const raw_point_t>& aabb_max)
 {
     assert(resolution > 0);
 
     const auto         N = resolution + 1;
-    tetrahedron_mesh_t mesh;
+    tetrahedron_mesh_t mesh{};
     mesh.vertices.resize(N * N * N);
     mesh.indices.resize(resolution * resolution * resolution * 5);
 
-    for (auto i = size_t{0}; i < N; ++i) {
-        const auto x = (aabb_max.x() - aabb_min.x()) * i / resolution + aabb_min.x();
-        for (auto j = size_t{0}; j < N; ++j) {
-            const auto y = (aabb_max.y() - aabb_min.y()) * j / resolution + aabb_min.y();
-            algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, N, [&](size_t k) {
-                const auto z      = (aabb_max.z() - aabb_min.z()) * k / resolution + aabb_min.z();
+    for (uint32_t i = 0; i < N; ++i) {
+        const auto x = (aabb_max[0] - aabb_min[0]) * i / resolution + aabb_min[0];
+        for (uint32_t j = 0; j < N; ++j) {
+            const auto y = (aabb_max[1] - aabb_min[1]) * j / resolution + aabb_min[1];
+            algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(0u, N, [&](uint32_t k) {
+                const auto z      = (aabb_max[2] - aabb_min[2]) * k / resolution + aabb_min[2];
                 const auto v0     = i * N * N + j * N + k;
                 mesh.vertices[v0] = {x, y, z};
 

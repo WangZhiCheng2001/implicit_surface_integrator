@@ -12,11 +12,11 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
 
     const auto num_vert  = background_mesh.vertices.size();
     const auto num_tets  = background_mesh.indices.size();
-    const auto num_funcs = sdf_scalar_field.cols();
+    const auto num_funcs = sdf_scalar_field.rows();
 
     // compute function signs at vertices
     auto                scalar_field_sign = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
-    Eigen::MatrixXd     scalar_field_signs(sdf_scalar_field.rows(), sdf_scalar_field.cols());
+    Eigen::MatrixXd     scalar_field_signs(num_funcs, num_vert);
     dynamic_bitset_mp<> is_degenerate_vertex(num_vert, false);
     {
         timers_manager.push_timer("identify sdf signs");
@@ -38,15 +38,14 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         func_in_tet.reserve(num_tets);
         start_index_of_tet.reserve(num_tets + 1);
         start_index_of_tet.emplace_back(0);
-        for (Eigen::Index i = 0; i < num_funcs; ++i) {
-            for (const auto& func_signs : scalar_field_signs.colwise()) {
-                uint32_t   pos_count{};
-                const auto tet_ptr = &background_mesh.indices[i].v1;
-                for (uint32_t j = 0; j < 4; ++j) {
-                    if (func_signs(tet_ptr[j]) == 1) pos_count++;
-                }
+        for (Eigen::Index i = 0; i < num_tets; ++i) {
+            const auto tet_ptr = &background_mesh.indices[i].v1;
+            for (Eigen::Index j = 0; j < num_funcs; ++j) {
+                uint32_t pos_count{};
+                for (uint32_t k = 0; k < 4; ++k)
+                    if (scalar_field_signs(j, tet_ptr[k]) == 1) pos_count++;
                 // tets[i].size() == 4, this means that the function is active in this tet
-                if (0 < pos_count && pos_count < 4) func_in_tet.emplace_back(i);
+                if (0 < pos_count && pos_count < 4) func_in_tet.emplace_back(j);
             }
             if (func_in_tet.size() > start_index_of_tet.back()) { ++num_intersecting_tet; }
             start_index_of_tet.emplace_back(static_cast<uint32_t>(func_in_tet.size()));
@@ -72,7 +71,7 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
             for (uint32_t i = 0; i < num_tets; ++i) {
                 const auto start_index              = start_index_of_tet[i];
                 const auto active_funcs_in_curr_tet = start_index_of_tet[i + 1] - start_index;
-                if (num_funcs == 0) {
+                if (active_funcs_in_curr_tet == 0) {
                     cut_result_index.emplace_back(invalid_index);
                     continue;
                 }
@@ -115,6 +114,7 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         }
         timers_manager.pop_timer("implicit arrangements calculation in total");
     }
+    std::cout << "test" << std::endl;
 
     // extract arrangement mesh: combining results from all tets to produce a mesh
     stl_vector_mp<IsoVertex> iso_verts{};

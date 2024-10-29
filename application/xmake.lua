@@ -1,6 +1,7 @@
 target("implicit_surface_integrator")
     set_kind("binary")
-    add_rules("config.indirect_predicates.flags")
+    -- add_rules("config.indirect_predicates.flags")
+    add_defines("SHARED_MODULE=0")
     add_deps("implicit_surface_network_process", "implicit_functions", "shared_module")
     add_files("main.cpp")
 target_end()

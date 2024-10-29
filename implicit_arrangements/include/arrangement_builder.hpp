@@ -40,7 +40,7 @@ struct deduce_arrangement_result_type<3> {
 template <size_t N>
 IAComplex<N> init_ia_complex(uint32_t num_planes)
 {
-    IAComplex<N> ia_complex;
+    IAComplex<N> ia_complex{};
     ia_complex.vertices.resize(N + 1);
 
     if constexpr (N == 2) {
@@ -64,7 +64,7 @@ IAComplex<N> init_ia_complex(uint32_t num_planes)
 
         ia_complex.faces.resize(1);
         ia_complex.faces[0].edges = {0, 1, 2};
-        ia_complex.faces[0].signs = {true, true, true};
+        ia_complex.faces[0].signs.resize(4, true);
         ia_complex.faces[0].signs.resize(num_planes, false);
     } else {
         ia_complex.vertices[0] = {1, 2, 3};
@@ -87,10 +87,10 @@ IAComplex<N> init_ia_complex(uint32_t num_planes)
         ia_complex.edges[5].supporting_planes = {0, 1};
 
         ia_complex.faces.resize(4);
-        ia_complex.faces[0].edges            = {5, 3, 4};
-        ia_complex.faces[1].edges            = {2, 1, 5};
-        ia_complex.faces[2].edges            = {4, 0, 2};
-        ia_complex.faces[3].edges            = {1, 0, 3};
+        ia_complex.faces[0].edges            = small_vector_mp<uint32_t>{5, 3, 4};
+        ia_complex.faces[1].edges            = small_vector_mp<uint32_t>{2, 1, 5};
+        ia_complex.faces[2].edges            = small_vector_mp<uint32_t>{4, 0, 2};
+        ia_complex.faces[3].edges            = small_vector_mp<uint32_t>{1, 0, 3};
         ia_complex.faces[0].supporting_plane = 0;
         ia_complex.faces[1].supporting_plane = 1;
         ia_complex.faces[2].supporting_plane = 2;
@@ -105,8 +105,8 @@ IAComplex<N> init_ia_complex(uint32_t num_planes)
         ia_complex.faces[3].negative_cell    = INVALID_INDEX;
 
         ia_complex.cells.resize(1);
-        ia_complex.cells[0].faces = {0, 1, 2, 3};
-        ia_complex.cells[0].signs = {true, true, true, true};
+        ia_complex.cells[0].faces = small_vector_mp<uint32_t>{0, 1, 2, 3};
+        ia_complex.cells[0].signs.resize(4, true);
         ia_complex.cells[0].signs.resize(num_planes, false);
     }
     return ia_complex;
@@ -121,14 +121,15 @@ public:
     using arrangement_result_type = typename detail::deduce_arrangement_result_type<N>::type;
 
     ArrangementBuilder(const plane_type* planes, const uint32_t num_planes)
-        : m_planes(planes, planes + num_planes), m_coplanar_planes(num_planes + N + 1)
     {
         const auto* ia = lookup(planes, num_planes);
         if (ia != nullptr) {
             m_arrangement.arrangement         = *ia;
             m_arrangement.is_runtime_computed = false;
         } else {
-            auto     ia_complex         = init_ia_complex<N>(num_planes);
+            auto ia_complex = init_ia_complex<N>(num_planes + static_cast<uint32_t>(N) + 1);
+            m_planes        = PlaneGroup<N>(planes, planes + num_planes);
+            m_coplanar_planes.init(num_planes + static_cast<uint32_t>(N) + 1);
             uint32_t unique_plane_count = 0;
             for (size_t i = 0; i < num_planes; i++) {
                 auto plane_id          = static_cast<uint32_t>(i + N + 1);
@@ -139,6 +140,7 @@ public:
                     unique_plane_count++;
                 }
             }
+            std::cout << "test" << std::endl;
 
             m_arrangement.arrangement         = extract_arrangement(std::move(ia_complex));
             m_arrangement.is_runtime_computed = true;

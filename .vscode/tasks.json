@@ -30,6 +30,12 @@
             "type": "shell",
             "command": "xmake project -k compile_commands .vscode",
             "problemMatcher": []
+        },
+        {
+            "label": "debug frontend application",
+            "type": "shell",
+            "command": "xmake run -d implicit_surface_integrator",
+            "problemMatcher": []
         }
     ]
 }

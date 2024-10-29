@@ -1,14 +1,14 @@
 #pragma once
 
-#include <string_view>
+#include <string>
 
 #include <container/small_vector.hpp>
 
-#include "implicit_function.hpp"
+#include "implicit_functions.hpp"
 
 struct load_functions_result_t {
-    small_vector_mp<std::unique_ptr<ImplicitFunction>> functions{};
-    bool                                               success{};
+    small_vector_mp<implicit_function_t<double, 3>> functions{};
+    bool                                            success{};
 };
 
-load_functions_result_t load_functions(const std::string_view& filename);
+load_functions_result_t load_functions(const std::string& filename);

@@ -1,4 +1,5 @@
 #include <algorithm/glue_algorithm.hpp>
+#include <iostream>
 
 #include "ia_cut_face.hpp"
 #include "robust_assert.hpp"
@@ -51,19 +52,20 @@ inline void remove_unused_geometry(IAComplex<N>& data)
 
     // Shrink edges.
     {
+        active_geometries.clear();
         active_geometries.resize(data.edges.size(), false);
         for (auto& f : data.faces) {
             for (auto eid : f.edges) { active_geometries[eid] = true; }
         }
 
-        shrink(data.faces, index_map, active_geometries);
+        shrink(data.edges, index_map, active_geometries);
 
         for (auto& f : data.faces) {
             algorithm::transform<algorithm::ExecutionPolicySelector::simd_only>(
                 f.edges.begin(),
                 f.edges.end(),
                 f.edges.begin(),
-                [&](size_t i) {
+                [&](uint32_t i) {
                     ROBUST_ASSERT(index_map[i] != INVALID_INDEX);
                     return index_map[i];
                 });
@@ -72,6 +74,7 @@ inline void remove_unused_geometry(IAComplex<N>& data)
 
     // Shrink vertices.
     {
+        active_geometries.clear();
         active_geometries.resize(data.vertices.size(), false);
         for (auto& e : data.edges) {
             for (auto vid : e.vertices) {
@@ -80,7 +83,7 @@ inline void remove_unused_geometry(IAComplex<N>& data)
             }
         }
 
-        shrink(data.faces, index_map, active_geometries);
+        shrink(data.vertices, index_map, active_geometries);
 
         for (auto& e : data.edges) {
             e.vertices[0] = index_map[e.vertices[0]];
@@ -189,14 +192,14 @@ uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t
     }
 
     // Step 3: handle 2-faces.
-    small_vector_mp<std::array<uint32_t, 3>> subfaces;
+    small_vector_mp<std::array<uint32_t, 3>> subfaces{};
     subfaces.reserve(num_faces);
     for (uint32_t i = 0; i < num_faces; i++) {
         subfaces.emplace_back(ia_cut_2_face(ia_complex, i, plane_index, orientations.data(), subedges.data()));
     }
 
     // Step 4: handle 3-faces.
-    small_vector_mp<std::array<uint32_t, 3>> subcells;
+    small_vector_mp<std::array<uint32_t, 3>> subcells{};
     subcells.reserve(num_cells);
     for (uint32_t i = 0; i < num_cells; i++) {
         subcells.emplace_back(ia_cut_3_face(ia_complex, i, plane_index, subfaces.data()));
@@ -206,8 +209,8 @@ uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t
     {
         small_dynamic_bitset_mp<> to_keep(cells.size(), false);
         for (const auto& subcell : subcells) {
-            to_keep[subcell[0]] = subcell[0] != INVALID_INDEX;
-            to_keep[subcell[1]] = subcell[1] != INVALID_INDEX;
+            if (subcell[0] != INVALID_INDEX) to_keep[subcell[0]] = true;
+            if (subcell[1] != INVALID_INDEX) to_keep[subcell[1]] = true;
         }
 
         small_vector_mp<uint32_t> index_map{};
@@ -221,8 +224,8 @@ uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t
     }
 
     // Step 6: check for coplanar planes.
-    size_t coplanar_plane = INVALID_INDEX;
-    for (size_t i = 0; i < num_faces; i++) {
+    uint32_t coplanar_plane = INVALID_INDEX;
+    for (uint32_t i = 0; i < num_faces; i++) {
         const auto& subface = subfaces[i];
         if (subface[0] == INVALID_INDEX && subface[1] == INVALID_INDEX) {
             const auto& f  = faces[i];
@@ -232,6 +235,7 @@ uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t
 
     // Step 7: remove unused geometries.
     remove_unused_geometry(ia_complex);
+    std::cout << "test" << std::endl;
 
     return coplanar_plane;
 }

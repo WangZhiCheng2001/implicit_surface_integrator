@@ -127,7 +127,7 @@ void compute_chains(const stl_vector_mp<IsoEdge>&                   patch_edges,
 
 void compute_shells_and_components(uint32_t                                                 num_patch,
                                    const stl_vector_mp<small_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
-                                   stl_vector_mp<stl_vector_mp<uint32_t>>&                  shells,
+                                   stl_vector_mp<small_vector_mp<uint32_t>>&                shells,
                                    stl_vector_mp<uint32_t>&                                 shell_of_half_patch,
                                    stl_vector_mp<small_vector_mp<uint32_t>>&                components,
                                    stl_vector_mp<uint32_t>&                                 component_of_patch)

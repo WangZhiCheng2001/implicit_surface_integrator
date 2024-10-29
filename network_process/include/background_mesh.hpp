@@ -2,6 +2,6 @@
 
 #include "utils/fwd_types.hpp"
 
-tetrahedron_mesh_t generate_tetrahedron_background_mesh(size_t             resolution,
-                                                        const raw_point_t& aabb_min,
-                                                        const raw_point_t& aabb_max);
+tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                             resolution,
+                                                        const Eigen::Ref<const raw_point_t>& aabb_min,
+                                                        const Eigen::Ref<const raw_point_t>& aabb_max);

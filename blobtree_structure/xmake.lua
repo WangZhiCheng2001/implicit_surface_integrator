@@ -1,0 +1,10 @@
+add_requires("eigen-latest")
+
+target("blobtree_structure")
+    add_rules("library.shared")
+    add_rules("config.indirect_predicates.flags")
+    add_deps("shared_module")
+    add_includedirs("include")
+    add_includedirs("interface", {public = true})
+    add_files("src/*.cpp")
+target_end()

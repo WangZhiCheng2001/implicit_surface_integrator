@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include <optional>
 #include <initializer_list>
 

@@ -27,17 +27,19 @@ template <size_t N>
 struct PlaneGroup {
     using PlaneType = typename detail::deduce_plane_type<N>::type;
 
+    PlaneGroup() = default;
+
     template <typename InputIt>
     PlaneGroup(InputIt first, InputIt last)
     {
         if constexpr (N == 2) {
-            planes = {
+            planes = small_vector_mp<PlaneType, N + 1>{
                 {1, 0, 0},
                 {0, 1, 0},
                 {0, 0, 1}
             };
         } else {
-            planes = {
+            planes = small_vector_mp<PlaneType, N + 1>{
                 {1, 0, 0, 0},
                 {0, 1, 0, 0},
                 {0, 0, 1, 0},

@@ -245,7 +245,7 @@ public:
     {
         if (count <= N) {
             if (size() > N) {
-                m_stack.assign(std::make_move_iterator(m_heap->begin()), std::make_move_iterator(m_heap->end()));
+                m_stack.assign(std::make_move_iterator(m_heap->begin()), std::make_move_iterator(m_heap->begin() + count));
                 m_heap->clear();
                 m_first = m_stack.begin();
             } else {
@@ -263,7 +263,7 @@ public:
     {
         if (count <= N) {
             if (size() > N) {
-                m_stack.assign(std::make_move_iterator(m_heap->begin()), std::make_move_iterator(m_heap->end()));
+                m_stack.assign(std::make_move_iterator(m_heap->begin()), std::make_move_iterator(m_heap->begin() + count));
                 m_heap->clear();
                 m_first = m_stack.begin();
             } else {

@@ -17,6 +17,7 @@ inline void shrink(small_vector_mp<T>& c, small_vector_mp<uint32_t>& index_map, 
         index_map[i] = active_count;
         active_count++;
     }
+    std::cout << "shrink: " << s << " -> " << active_count << std::endl;
     c.resize(active_count);
 }
 
@@ -235,7 +236,7 @@ uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t
 
     // Step 7: remove unused geometries.
     remove_unused_geometry(ia_complex);
-    std::cout << "test" << std::endl;
+    std::cout << "an add_plane() completed" << std::endl;
 
     return coplanar_plane;
 }

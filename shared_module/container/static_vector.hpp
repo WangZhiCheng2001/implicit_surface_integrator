@@ -9,7 +9,6 @@
 #pragma warning(disable : 26495)
 #endif
 
-
 template <class T, std::size_t N = 16>
 class static_vector
 {

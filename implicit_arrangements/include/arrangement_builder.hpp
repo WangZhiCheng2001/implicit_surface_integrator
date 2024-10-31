@@ -140,7 +140,6 @@ public:
                     unique_plane_count++;
                 }
             }
-            std::cout << "test" << std::endl;
 
             m_arrangement.arrangement         = extract_arrangement(std::move(ia_complex));
             m_arrangement.is_runtime_computed = true;

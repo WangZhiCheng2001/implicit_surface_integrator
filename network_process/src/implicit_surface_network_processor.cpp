@@ -15,15 +15,19 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     const auto num_funcs = sdf_scalar_field.rows();
 
     // compute function signs at vertices
+    // EDIT: we only need to identify the sdf value is inside or on surface/outside
+    // Eigen::Matrix<int8_t, Eigen::Dynamic, Eigen::Dynamic> scalar_field_signs(num_funcs, num_vert);
     auto                scalar_field_sign = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
-    Eigen::MatrixXd     scalar_field_signs(num_funcs, num_vert);
+    dynamic_bitset_mp<> is_positive_scalar_field_sign(num_funcs * num_vert, false);
+    dynamic_bitset_mp<> is_negative_scalar_field_sign(num_funcs * num_vert, false);
     dynamic_bitset_mp<> is_degenerate_vertex(num_vert, false);
     {
         timers_manager.push_timer("identify sdf signs");
         for (size_t i = 0; i < sdf_scalar_field.size(); ++i) {
-            if ((*(scalar_field_signs.data() + i) = scalar_field_sign(*(sdf_scalar_field.data() + i))) == 0) {
-                is_degenerate_vertex.set(i);
-            }
+            const auto sign = scalar_field_sign(*(sdf_scalar_field.data() + i));
+            is_positive_scalar_field_sign.set(i, sign > 0);
+            is_negative_scalar_field_sign.set(i, sign < 0);
+            if (sign == 0) { is_degenerate_vertex.set(i); }
         }
         timers_manager.pop_timer("identify sdf signs");
     }
@@ -41,11 +45,14 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         for (Eigen::Index i = 0; i < num_tets; ++i) {
             const auto tet_ptr = &background_mesh.indices[i].v1;
             for (Eigen::Index j = 0; j < num_funcs; ++j) {
-                uint32_t pos_count{};
-                for (uint32_t k = 0; k < 4; ++k)
-                    if (scalar_field_signs(j, tet_ptr[k]) == 1) pos_count++;
+                uint32_t pos_count{}, neg_count{};
+                for (uint32_t k = 0; k < 4; ++k) {
+                    if (is_positive_scalar_field_sign[tet_ptr[k] * num_funcs + j]) pos_count++;
+                    if (is_negative_scalar_field_sign[tet_ptr[k] * num_funcs + j]) neg_count++;
+                }
+                // if (scalar_field_signs(j, tet_ptr[k]) == 1) pos_count++;
                 // tets[i].size() == 4, this means that the function is active in this tet
-                if (0 < pos_count && pos_count < 4) func_in_tet.emplace_back(j);
+                if (pos_count < 4 && neg_count < 4) func_in_tet.emplace_back(j);
             }
             if (func_in_tet.size() > start_index_of_tet.back()) { ++num_intersecting_tet; }
             start_index_of_tet.emplace_back(static_cast<uint32_t>(func_in_tet.size()));
@@ -114,7 +121,6 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         }
         timers_manager.pop_timer("implicit arrangements calculation in total");
     }
-    std::cout << "test" << std::endl;
 
     // extract arrangement mesh: combining results from all tets to produce a mesh
     stl_vector_mp<IsoVertex> iso_verts{};
@@ -287,16 +293,22 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     }
 
     // fetching function labels (True, False) for each cell
-    small_dynamic_bitset_mp<> sample_function_label(num_funcs);
-    for (Eigen::Index i = 0; i < num_funcs; i++) {
-        sample_function_label.set(i, (scalar_field_signs(0, i) == 1) ? true : false);
-    }
+    small_dynamic_bitset_mp<> sample_function_label{};
+    sample_function_label.reserve(num_funcs);
+    sample_function_label.append(is_positive_scalar_field_sign.data(),
+                                 is_positive_scalar_field_sign.data() + num_funcs / sizeof(size_t) + 1);
+    // for (size_t i = 0; i < num_funcs; i++) {
+    //     // sample_function_label.set(i, (scalar_field_signs(i, size_t{0}) == 1) ? true : false);
+    //     sample_function_label.set(i, scalar_field_signs[i]);
+    // }
+    std::cout << "test" << std::endl;
     cell_function_labels = sign_propagation(arrangement_cells,
                                             shell_of_half_patch,
                                             shells,
                                             patch_function_labels,
                                             num_funcs,
                                             sample_function_label);
+    std::cout << "test" << std::endl;
 
     // free Arranger3D runtime memory iff necessary
     for (uint32_t i = 0; i < cut_results.size(); ++i) {

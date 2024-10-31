@@ -31,7 +31,7 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                
                 const auto v0     = i * N * N + j * N + k;
                 mesh.vertices[v0] = {x, y, z};
 
-                if (i < resolution - 1 && j < resolution - 1 && k < resolution - 1) {
+                if (i < resolution && j < resolution && k < resolution) {
                     size_t     idx = (i * resolution * resolution + j * resolution + k) * 5;
                     const auto v1  = (i + 1) * N * N + j * N + k;
                     const auto v2  = (i + 1) * N * N + (j + 1) * N + k;
@@ -42,11 +42,17 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                
                     const auto v7  = i * N * N + (j + 1) * N + k + 1;
 
                     if ((i + j + k) % 2 == 0)
-                        *(TetrahedronVertexIndexGroup*)(mesh.indices.data() + idx) = {v4, v6, v1, v3, v6, v3, v4, v7, v1, v3,
-                                                                                      v0, v4, v3, v1, v2, v6, v4, v1, v6, v5};
+                        *(TetrahedronVertexIndexGroup*)(mesh.indices.data() + idx) = {v4, v6, v1, v3, //
+                                                                                      v6, v3, v4, v7, //
+                                                                                      v1, v3, v0, v4, //
+                                                                                      v3, v1, v2, v6, //
+                                                                                      v4, v1, v6, v5};
                     else
-                        *(TetrahedronVertexIndexGroup*)(mesh.indices.data() + idx) = {v7, v0, v2, v5, v2, v3, v0, v7, v5, v7,
-                                                                                      v0, v4, v7, v2, v6, v5, v0, v1, v2, v5};
+                        *(TetrahedronVertexIndexGroup*)(mesh.indices.data() + idx) = {v7, v0, v2, v5, //
+                                                                                      v2, v3, v0, v7, //
+                                                                                      v5, v7, v0, v4, //
+                                                                                      v7, v2, v6, v5, //
+                                                                                      v0, v1, v2, v5};
                 }
             });
         }

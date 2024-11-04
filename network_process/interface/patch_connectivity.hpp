@@ -1,7 +1,6 @@
 #pragma once
 
-#include "container/dynamic_bitset.hpp"
-#include "utils/fwd_types.hpp"
+#include <utils/fwd_types.hpp>
 
 struct half_patch_t {
     uint32_t index{};
@@ -16,9 +15,9 @@ using half_patch_pair_t = std::pair<half_patch_t, half_patch_t>;
 ///@param[out] edges_of_face            A list of face edges containing global edge index
 ///
 ///@param[out] patch_edges           Edges of the patch; containing two vertices, global face index, and local edge index
-void compute_patch_edges(const stl_vector_mp<PolygonFace>&         patch_faces,
-                         stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_face,
-                         stl_vector_mp<IsoEdge>&                   patch_edges);
+ISNP_API void compute_patch_edges(const stl_vector_mp<polygon_face_t>&    patch_faces,
+                                  stl_vector_mp<stl_vector_mp<uint32_t>>& edges_of_face,
+                                  stl_vector_mp<iso_edge_t>&              patch_edges);
 
 /// Group `iso_faces` into patches for IA:
 ///
@@ -30,11 +29,11 @@ void compute_patch_edges(const stl_vector_mp<PolygonFace>&         patch_faces,
 ///
 /// @param[out] patches           output - the list of patches which contain a list of faces' indices.
 /// @param[out] patch_function_label             output - the list of patch to implicit funciton label.
-void compute_patches(const stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_face,
-                     const stl_vector_mp<IsoEdge>&                   patch_edges,
-                     const stl_vector_mp<PolygonFace>&               patch_faces,
-                     stl_vector_mp<small_vector_mp<uint32_t>>&       patches,
-                     stl_vector_mp<uint32_t>&                        patch_function_label);
+ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edges_of_face,
+                              const stl_vector_mp<iso_edge_t>&              patch_edges,
+                              const stl_vector_mp<polygon_face_t>&          patch_faces,
+                              stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
+                              stl_vector_mp<uint32_t>&                      patch_function_label);
 
 /// this should be correct, so we won't implement it for now.
 // /// A validation of patch to function label through taking the majority vote of function labels on all the patch vertices
@@ -56,9 +55,9 @@ void compute_patches(const stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_fa
 /// @param[out] non_manifold_edges_of_vert          Indices of non-manifold vertices
 ///
 /// @param[out] chains          Chains of non-manifold edges; encoded by a vector of edge indices.
-void compute_chains(const stl_vector_mp<IsoEdge>&                   patch_edges,
-                    const stl_vector_mp<small_vector_mp<uint32_t>>& non_manifold_edges_of_vert,
-                    stl_vector_mp<small_vector_mp<uint32_t>>&       chains);
+ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch_edges,
+                             const stl_vector_mp<stl_vector_mp<uint32_t>>& non_manifold_edges_of_vert,
+                             stl_vector_mp<stl_vector_mp<uint32_t>>&       chains);
 
 /// compute shells and connected components of isosurfaces
 /// each shell is a list of half-patches
@@ -71,12 +70,12 @@ void compute_chains(const stl_vector_mp<IsoEdge>&                   patch_edges,
 /// @param[out] shell_of_patch          Map: half-patch --> shell
 /// @param[out] component           Connected componeent represented as a list of patches
 /// @param[out] component_of_patch          Map: patch --> component
-void compute_shells_and_components(uint32_t                                                 num_patch,
-                                   const stl_vector_mp<small_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
-                                   stl_vector_mp<small_vector_mp<uint32_t>>&                shells,
-                                   stl_vector_mp<uint32_t>&                                 shell_of_half_patch,
-                                   stl_vector_mp<small_vector_mp<uint32_t>>&                components,
-                                   stl_vector_mp<uint32_t>&                                 component_of_patch);
+ISNP_API void compute_shells_and_components(uint32_t                                               num_patch,
+                                            const stl_vector_mp<stl_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                shells,
+                                            stl_vector_mp<uint32_t>&                               shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                components,
+                                            stl_vector_mp<uint32_t>&                               component_of_patch);
 
 /// group shells into arrangement cells
 ///
@@ -84,9 +83,9 @@ void compute_shells_and_components(uint32_t                                     
 ///@param[in] shell_links           The connectivity of shells
 ///
 ///@param[out] arrangement_cells            Cells
-void compute_arrangement_cells(uint32_t                                            num_shell,
-                               const stl_vector_mp<std::pair<uint32_t, uint32_t>>& shell_links,
-                               stl_vector_mp<small_vector_mp<uint32_t>>&           arrangement_cells);
+ISNP_API void compute_arrangement_cells(uint32_t                                            num_shell,
+                                        const stl_vector_mp<std::pair<uint32_t, uint32_t>>& shell_links,
+                                        stl_vector_mp<stl_vector_mp<uint32_t>>&             arrangement_cells);
 
 /// Propagate the function labels of patches to cells.
 ///
@@ -100,10 +99,9 @@ void compute_arrangement_cells(uint32_t                                         
 ///
 ///@return a 2D vector of `bool` of values `true` and `false` for each cell and for each function; `true` at index `i` and `j`
 /// represents the cell `i` is inside of the implicit shape of the function `j`, and vice versa.
-
-stl_vector_mp<small_dynamic_bitset_mp<>> sign_propagation(const stl_vector_mp<small_vector_mp<uint32_t>>& arrangement_cells,
-                                                          const stl_vector_mp<uint32_t>&                  shell_of_half_patch,
-                                                          const stl_vector_mp<small_vector_mp<uint32_t>>& shells,
-                                                          const stl_vector_mp<uint32_t>&                  patch_function_label,
-                                                          uint32_t                                        n_func,
-                                                          const small_dynamic_bitset_mp<>& sample_function_label);
+ISNP_API stl_vector_mp<stl_vector_mp<bool>> sign_propagation(const stl_vector_mp<stl_vector_mp<uint32_t>>& arrangement_cells,
+                                                             const stl_vector_mp<uint32_t>&                shell_of_half_patch,
+                                                             const stl_vector_mp<stl_vector_mp<uint32_t>>& shells,
+                                                             const stl_vector_mp<uint32_t>&                patch_function_label,
+                                                             uint32_t                                      n_func,
+                                                             const stl_vector_mp<bool>& sample_function_label);

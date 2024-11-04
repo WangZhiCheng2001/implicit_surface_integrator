@@ -4,11 +4,7 @@
 
 #include <macros.h>
 
-typedef int8_t Orientation;
-#define ORIENTATION_NEGATIVE -1
-#define ORIENTATION_POSITIVE 1
-#define ORIENTATION_ZERO     0
-#define ORIENTATION_INVALID  2
+enum class orientation : int8_t { negative = -1, positive = 1, zero = 0, invalid = 2 };
 
 /**
  * Compute the orientation of two zero crossings on a 2-simplex.
@@ -26,8 +22,8 @@ typedef int8_t Orientation;
  *     * INVALID:  if function 0 is a constant function, which makes the problem
  *                 ill-posed.
  */
-EXTERN_C API Orientation orient1d(const double f0[2], const double f1[2]);
-EXTERN_C API Orientation orient1d_nonrobust(const double f0[2], const double f1[2]);
+EXTERN_C IP_API orientation orient1d(const double f0[2], const double f1[2]);
+EXTERN_C IP_API orientation orient1d_nonrobust(const double f0[2], const double f1[2]);
 
 /**
  * Compute the orientation of the 2D intersection of function 0 and 1 with
@@ -47,8 +43,8 @@ EXTERN_C API Orientation orient1d_nonrobust(const double f0[2], const double f1[
  *     * INVALID:  if function 0 or 1 is a constant function, or they do not
  *                 intersect at a point, which makes the problem ill-posed.
  */
-EXTERN_C API Orientation orient2d(const double f0[3], const double f1[3], const double f2[3]);
-EXTERN_C API Orientation orient2d_nonrobust(const double f0[3], const double f1[3], const double f2[3]);
+EXTERN_C IP_API orientation orient2d(const double f0[3], const double f1[3], const double f2[3]);
+EXTERN_C IP_API orientation orient2d_nonrobust(const double f0[3], const double f1[3], const double f2[3]);
 
 /**
  * Compute the orientation of the 3D intersection of function 0, 1 and 2 with
@@ -73,8 +69,8 @@ EXTERN_C API Orientation orient2d_nonrobust(const double f0[3], const double f1[
  *     * INVALID:  if function 0, 1 or 2 is a constant function, or they do not
  *                 intersect at a point, which makes the problem ill-posed.
  */
-EXTERN_C API Orientation orient3d(const double f0[4], const double f1[4], const double f2[4], const double f3[4]);
-EXTERN_C API Orientation orient3d_nonrobust(const double f0[4], const double f1[4], const double f2[4], const double f3[4]);
+EXTERN_C IP_API orientation orient3d(const double f0[4], const double f1[4], const double f2[4], const double f3[4]);
+EXTERN_C IP_API orientation orient3d_nonrobust(const double f0[4], const double f1[4], const double f2[4], const double f3[4]);
 
 /**
  * Compute the orientation of the 4D intersection of function 0, 1, 2 and 3 with
@@ -101,7 +97,7 @@ EXTERN_C API Orientation orient3d_nonrobust(const double f0[4], const double f1[
  *     * INVALID:  if function 0, 1, 2 or 2 is a constant function, or they do
  *                 not intersect at a point, which makes the problem ill-posed.
  */
-EXTERN_C API Orientation
+EXTERN_C IP_API orientation
     orient4d(const double f0[5], const double f1[5], const double f2[5], const double f3[5], const double f4[5]);
-EXTERN_C API Orientation
+EXTERN_C IP_API orientation
     orient4d_nonrobust(const double f0[5], const double f1[5], const double f2[5], const double f3[5], const double f4[5]);

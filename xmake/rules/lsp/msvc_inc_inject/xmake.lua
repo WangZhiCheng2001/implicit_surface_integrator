@@ -3,7 +3,7 @@ rule("lsp.msvc_inc_inject")
         local includepaths = os.getenv("INCLUDE")
         if includepaths then
             for _, _path in ipairs(includepaths:split(";")) do
-                if string.find(_path, "VC") then
+                if (string.find(_path, "VC") or string.find(_path, "ucrt")) then
                     target:add("includedirs", _path)
                 end
             end

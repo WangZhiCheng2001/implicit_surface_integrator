@@ -29,13 +29,13 @@
 #endif
 #endif
 
-#ifndef API
-#ifdef SHARED_MODULE
-#define API EXPORT_API
-#elif
-#define API IMPORT_API
-#endif
-#endif
+// #ifndef INTERNAL_API
+// #define INTERNAL_API 
+// #endif
+
+// #ifndef API
+// #define API IMPORT_API
+// #endif
 
 #ifndef EXTERN_C_BEGIN
 #ifdef __cplusplus

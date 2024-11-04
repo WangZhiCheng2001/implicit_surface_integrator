@@ -35,6 +35,14 @@ class labelled_timers_manager
 public:
     labelled_timers_manager() = default;
 
+    void clear() { m_timer_statistics.clear(); }
+
+    void print() const{
+        for (const auto& [label, stats] : m_timer_statistics) {
+            std::cout << label << ": " << stats.elapsed_time / stats.count << "s" << std::endl;
+        }
+    }
+
     void push_timer(const char* label) { m_label_stack.emplace(label); }
 
     void pop_timer(const char* label)
@@ -50,5 +58,5 @@ public:
 
 private:
     std::stack<ScopedTimer>                                m_label_stack{};
-    std::unordered_map<std::string_view, timer_statistics> m_timer_statistics{};
+    std::unordered_map<const char*, timer_statistics> m_timer_statistics{};
 };

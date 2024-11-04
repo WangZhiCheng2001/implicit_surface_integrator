@@ -11,9 +11,9 @@ struct TetrahedronVertexIndexGroup {
     uint32_t v40, v41, v42, v43;
 };
 
-tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                             resolution,
-                                                        const Eigen::Ref<const raw_point_t>& aabb_min,
-                                                        const Eigen::Ref<const raw_point_t>& aabb_max)
+ISNP_API tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                             resolution,
+                                                                 const Eigen::Ref<const raw_point_t>& aabb_min,
+                                                                 const Eigen::Ref<const raw_point_t>& aabb_max)
 {
     assert(resolution > 0);
 
@@ -32,7 +32,7 @@ tetrahedron_mesh_t generate_tetrahedron_background_mesh(uint32_t                
                 mesh.vertices[v0] = {x, y, z};
 
                 if (i < resolution && j < resolution && k < resolution) {
-                    size_t     idx = (i * resolution * resolution + j * resolution + k) * 5;
+                    uint32_t   idx = (i * resolution * resolution + j * resolution + k) * 5;
                     const auto v1  = (i + 1) * N * N + j * N + k;
                     const auto v2  = (i + 1) * N * N + (j + 1) * N + k;
                     const auto v3  = i * N * N + (j + 1) * N + k;

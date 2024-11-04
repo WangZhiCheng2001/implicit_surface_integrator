@@ -1,21 +1,18 @@
-#include <container/dynamic_bitset.hpp>
-
 #include <topology_ray_shooting.hpp>
 #include <patch_connectivity.hpp>
-#include "utils/fwd_types.hpp"
 
-void topo_ray_shooting(const tetrahedron_mesh_t                       &tet_mesh,
-                       const stl_vector_mp<Arrangement3D>             &cut_results,
-                       const stl_vector_mp<uint32_t>                  &cut_result_index,
-                       const stl_vector_mp<IsoVertex>                 &iso_verts,
-                       const stl_vector_mp<PolygonFace>               &iso_faces,
-                       const stl_vector_mp<small_vector_mp<uint32_t>> &patches,
-                       const stl_vector_mp<uint32_t>                  &patch_of_face,
-                       const stl_vector_mp<small_vector_mp<uint32_t>> &shells,
-                       const stl_vector_mp<uint32_t>                  &shell_of_half_patch,
-                       const stl_vector_mp<small_vector_mp<uint32_t>> &components,
-                       const stl_vector_mp<uint32_t>                  &component_of_patch,
-                       stl_vector_mp<small_vector_mp<uint32_t>>       &arrangement_cells)
+ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                     &tet_mesh,
+                                const stl_vector_mp<arrangement_t>           &cut_results,
+                                const stl_vector_mp<uint32_t>                &cut_result_index,
+                                const stl_vector_mp<iso_vertex_t>            &iso_verts,
+                                const stl_vector_mp<polygon_face_t>          &iso_faces,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>> &patches,
+                                const stl_vector_mp<uint32_t>                &patch_of_face,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>> &shells,
+                                const stl_vector_mp<uint32_t>                &shell_of_half_patch,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>> &components,
+                                const stl_vector_mp<uint32_t>                &component_of_patch,
+                                stl_vector_mp<stl_vector_mp<uint32_t>>       &arrangement_cells)
 {
     // map: tet vert index --> index of next vert (with smaller (x,y,z))
     stl_vector_mp<uint32_t> next_vert{};
@@ -47,7 +44,7 @@ void topo_ray_shooting(const tetrahedron_mesh_t                       &tet_mesh,
     stl_vector_mp<std::pair<uint32_t, uint32_t>> shell_links{};
     {
         shell_links.reserve(components.size());
-        small_vector_mp<uint32_t> sorted_vert_indices_on_edge{};
+        stl_vector_mp<uint32_t> sorted_vert_indices_on_edge{};
         sorted_vert_indices_on_edge.reserve(3);
         for (uint32_t i = 0; i < components.size(); ++i) {
             // extremal edge: v1 -> v2
@@ -56,13 +53,12 @@ void topo_ray_shooting(const tetrahedron_mesh_t                       &tet_mesh,
             const auto  iso_vId        = iso_vert_on_v_v_next[extreme_v1];
             const auto  tetId          = iso_verts[iso_vId].header.volume_index;
             const auto &tet_cut_result = cut_results[cut_result_index[tetId]];
-            const auto  tet_ptr        = &tet_mesh.indices[tetId].v1;
             // get local index of v1 and v2 in the tet
             uint32_t    local_v1, local_v2;
             for (uint32_t j = 0; j < 4; ++j) {
-                if (tet_ptr[j] == extreme_v1) {
+                if (tet_mesh.indices[tetId][j] == extreme_v1) {
                     local_v1 = j;
-                } else if (tet_ptr[j] == extreme_v2) {
+                } else if (tet_mesh.indices[tetId][j] == extreme_v2) {
                     local_v2 = j;
                 }
             }
@@ -115,12 +111,11 @@ void topo_ray_shooting(const tetrahedron_mesh_t                       &tet_mesh,
                     const auto  end_tetId          = iso_verts[iso_vId_end].header.volume_index;
                     const auto &end_tet_cut_result = cut_results[cut_result_index[end_tetId]];
                     auto        v_next             = next_vert[v_curr];
-                    auto        end_tet_ptr        = &tet_mesh.indices[end_tetId].v1;
                     // find local vertex indices in the end tetrahedron
                     for (uint32_t j = 0; j < 4; ++j) {
-                        if (end_tet_ptr[j] == v_curr) {
+                        if (tet_mesh.indices[end_tetId][j] == v_curr) {
                             local_v1 = j;
-                        } else if (end_tet_ptr[j] == v_next) {
+                        } else if (tet_mesh.indices[end_tetId][j] == v_next) {
                             local_v2 = j;
                         }
                     }
@@ -150,42 +145,41 @@ void topo_ray_shooting(const tetrahedron_mesh_t                       &tet_mesh,
     compute_arrangement_cells(static_cast<uint32_t>(shells.size()), shell_links, arrangement_cells);
 }
 
-void build_next_vert(const tetrahedron_mesh_t &tet_mesh, stl_vector_mp<uint32_t> &next_vert)
+ISNP_API void build_next_vert(const tetrahedron_mesh_t &tet_mesh, stl_vector_mp<uint32_t> &next_vert)
 {
     next_vert.resize(tet_mesh.vertices.size(), invalid_index);
     for (const auto &tet : tet_mesh.indices) {
-        const auto tet_ptr = &tet.v1;
         // find the smallest vertex of tet
-        uint32_t   min_id  = 0;
+        uint32_t min_id = 0;
         for (uint32_t i = 1; i < 4; ++i) {
-            if (point_xyz_less(tet_mesh.vertices[tet_ptr[i]], tet_mesh.vertices[tet_ptr[min_id]])) { min_id = i; }
+            if (point_xyz_less(tet_mesh.vertices[tet[i]], tet_mesh.vertices[tet[min_id]])) { min_id = i; }
         }
-        uint32_t min_vId = tet_ptr[min_id];
+        uint32_t min_vId = tet[min_id];
         //
         for (uint32_t i = 0; i < 4; ++i) {
-            if (i != min_id) { next_vert[tet_ptr[i]] = min_vId; }
+            if (i != min_id) { next_vert[tet[i]] = min_vId; }
         }
     }
 }
 
-void find_extremal_edges(const decltype(tetrahedron_mesh_t::vertices)                     &pts,
-                         const stl_vector_mp<IsoVertex>                                   &iso_verts,
-                         const stl_vector_mp<PolygonFace>                                 &iso_faces,
-                         const stl_vector_mp<small_vector_mp<uint32_t>>                   &patches,
-                         const stl_vector_mp<small_vector_mp<uint32_t>>                   &components,
-                         const stl_vector_mp<uint32_t>                                    &component_of_patch,
-                         const stl_vector_mp<uint32_t>                                    &next_vert,
-                         stl_vector_mp<uint32_t>                                          &extremal_edge_of_component,
-                         stl_vector_mp<uint32_t>                                          &iso_vert_on_v_v_next,
-                         flat_hash_map_mp<face_header_t, uint32_t>                        &iso_face_id_of_tet_face,
-                         flat_hash_map_mp<simplified_vertex_header_t, component_header_t> &iso_vId_compId_of_tet_vert)
+ISNP_API void find_extremal_edges(const stl_vector_mp<raw_point_t>                                 &pts,
+                                  const stl_vector_mp<iso_vertex_t>                                &iso_verts,
+                                  const stl_vector_mp<polygon_face_t>                              &iso_faces,
+                                  const stl_vector_mp<stl_vector_mp<uint32_t>>                     &patches,
+                                  const stl_vector_mp<stl_vector_mp<uint32_t>>                     &components,
+                                  const stl_vector_mp<uint32_t>                                    &component_of_patch,
+                                  const stl_vector_mp<uint32_t>                                    &next_vert,
+                                  stl_vector_mp<uint32_t>                                          &extremal_edge_of_component,
+                                  stl_vector_mp<uint32_t>                                          &iso_vert_on_v_v_next,
+                                  flat_hash_map_mp<face_header_t, uint32_t>                        &iso_face_id_of_tet_face,
+                                  flat_hash_map_mp<simplified_vertex_header_t, component_header_t> &iso_vId_compId_of_tet_vert)
 {
     extremal_edge_of_component.resize(2 * components.size(), invalid_index);
     iso_vert_on_v_v_next.resize(pts.size(), invalid_index);
     iso_face_id_of_tet_face.reserve(iso_faces.size());
     iso_vId_compId_of_tet_vert.reserve(iso_faces.size() / 2);
     //
-    small_dynamic_bitset_mp<> is_iso_vert_visited(iso_verts.size(), false);
+    stl_vector_mp<bool> is_iso_vert_visited(iso_verts.size(), false);
     for (uint32_t i = 0; i < patches.size(); ++i) {
         uint32_t component_id = component_of_patch[i];
         auto    &u1           = extremal_edge_of_component[2 * component_id];
@@ -245,25 +239,28 @@ void find_extremal_edges(const decltype(tetrahedron_mesh_t::vertices)           
     }
 }
 
-void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
-                                     uint32_t                   v,
-                                     uint32_t                   u,
-                                     small_vector_mp<uint32_t> &vert_indices)
+ISNP_API void compute_edge_intersection_order(const arrangement_t     &tet_cut_result,
+                                              uint32_t                 v,
+                                              uint32_t                 u,
+                                              stl_vector_mp<uint32_t> &vert_indices)
 {
+    const auto &vertices = tet_cut_result.vertices;
+    const auto &faces    = tet_cut_result.faces;
+
     std::array<bool, 4> edge_flag{true, true, true, true};
     edge_flag[v] = false;
     edge_flag[u] = false;
 
     // find vertices on edge v->u, and index of v and u in tet_cut_result.vertices
-    uint32_t                  v_id, u_id;
-    small_dynamic_bitset_mp<> is_on_edge_vu(tet_cut_result.num_vertices, false);
-    uint32_t                  num_vert_in_edge_vu = 0;
-    uint32_t                  flag_count;
-    uint32_t                  other_plane;
-    for (uint32_t i = 0; i < tet_cut_result.num_vertices; ++i) {
-        flag_count      = 0;
-        other_plane     = invalid_index;
-        const auto vert = &tet_cut_result.points[i].i0;
+    uint32_t            v_id, u_id;
+    stl_vector_mp<bool> is_on_edge_vu(vertices.size(), false);
+    uint32_t            num_vert_in_edge_vu = 0;
+    uint32_t            flag_count;
+    uint32_t            other_plane;
+    for (uint32_t i = 0; i < vertices.size(); ++i) {
+        flag_count       = 0;
+        other_plane      = invalid_index;
+        const auto &vert = vertices[i];
         for (int j = 0; j < 3; ++j) {
             if (vert[j] < 4) { // 0,1,2,3 are tet boundary planes
                 if (edge_flag[vert[j]]) {
@@ -300,9 +297,10 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     }
     //    std::vector<bool> is_on_tri_vuw(faces.size(), false);
     stl_vector_mp<uint32_t> faces_on_tri_vuw{};
-    for (uint32_t i = 0; i < tet_cut_result.num_faces; ++i) {
-        if (tet_cut_result.negative_cells[i] == invalid_index // face is on tet boundary
-            && tet_cut_result.supporting_planes[i] == pId)
+    for (uint32_t i = 0; i < faces.size(); ++i) {
+        const auto &face = faces[i];
+        if (face.negative_cell == invalid_index // face is on tet boundary
+            && face.supporting_plane == pId)
             faces_on_tri_vuw.emplace_back(i);
     }
 
@@ -310,7 +308,8 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     // map: edge (v1, v2) --> incident faces (f1, f2), f2 is None if (v1,v2) is on triangle boundary
     flat_hash_map_mp<std::pair<uint32_t, uint32_t>, std::pair<uint32_t, uint32_t>> faces_of_edge{};
     for (const auto fId : faces_on_tri_vuw) {
-        const auto num_vert = tet_cut_result.face_vertices_count[fId];
+        const auto &face     = faces[fId];
+        const auto  num_vert = face.vertices.size();
         for (uint32_t i = 0; i < num_vert; ++i) {
             const auto i_next  = (i + 1) % num_vert;
             const auto vi      = tet_cut_result.vertices[fId][i];
@@ -333,10 +332,10 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     // 2. has an edge on v->u
     uint32_t f_start;
     for (const auto fId : faces_on_tri_vuw) {
-        bool     find_v = false;
-        uint32_t count  = 0;
-        for (uint32_t i = 0; i < tet_cut_result.face_vertices_count[fId]; ++i) {
-            const auto vi = tet_cut_result.vertices[fId][i];
+        const auto &face   = faces[fId];
+        bool        find_v = false;
+        uint32_t    count  = 0;
+        for (auto vi : face.vertices) {
             if (vi == v_id) { find_v = true; }
             if (is_on_edge_vu[vi]) { ++count; }
         }
@@ -349,7 +348,7 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     // trace edge v->u
     vert_indices.reserve(num_vert_in_edge_vu + 2);
     vert_indices.emplace_back(v_id);
-    small_dynamic_bitset_mp<>     visited_face(tet_cut_result.num_faces, false);
+    stl_vector_mp<bool>           visited_face(faces.size(), false);
     uint32_t                      v_curr = v_id;
     uint32_t                      f_curr = f_start;
     std::pair<uint32_t, uint32_t> edge_prev;
@@ -357,10 +356,11 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     std::pair<uint32_t, uint32_t> edge_on_vu;
     while (v_curr != u_id) {
         // clear edge_on_vu
-        edge_on_vu.first    = invalid_index;
-        edge_on_vu.second   = invalid_index;
+        edge_on_vu.first     = invalid_index;
+        edge_on_vu.second    = invalid_index;
         //
-        const auto num_vert = tet_cut_result.face_vertices_count[f_curr];
+        const auto &face     = faces[f_curr];
+        const auto  num_vert = face.vertices.size();
         // visit all edges of face, find edge_prev, edge_next and edge_on_vu
         for (uint32_t i = 0; i < num_vert; ++i) {
             const auto i_next  = (i + 1) % num_vert;
@@ -411,20 +411,22 @@ void compute_edge_intersection_order(const Arrangement3D       &tet_cut_result,
     }
 }
 
-void compute_passing_face_pair(const Arrangement3D &tet_cut_result,
-                               uint32_t             v1,
-                               uint32_t             v2,
-                               face_with_orient_t  &face_orient1,
-                               face_with_orient_t  &face_orient2)
+ISNP_API void compute_passing_face_pair(const arrangement_t &tet_cut_result,
+                                        uint32_t             v1,
+                                        uint32_t             v2,
+                                        face_with_orient_t  &face_orient1,
+                                        face_with_orient_t  &face_orient2)
 {
     // find a face incident to edge v1 -> v2
-    uint32_t incident_face_id;
-    bool     found_incident_face = false;
-    for (uint32_t i = 0; i < tet_cut_result.num_faces; ++i) {
-        const auto num_vert = tet_cut_result.face_vertices_count[i];
+    const auto &faces = tet_cut_result.faces;
+    uint32_t    incident_face_id;
+    bool        found_incident_face = false;
+    for (uint32_t i = 0; i < faces.size(); ++i) {
+        const auto &face     = faces[i];
+        uint32_t    num_vert = static_cast<uint32_t>(face.vertices.size());
         for (uint32_t j = 0; j < num_vert; ++j) {
-            const auto vId1 = tet_cut_result.vertices[i][j];
-            const auto vId2 = tet_cut_result.vertices[i][(j + 1) % num_vert];
+            uint32_t vId1 = face.vertices[j];
+            uint32_t vId2 = face.vertices[(j + 1) % num_vert];
             if ((vId1 == v1 && vId2 == v2) || (vId1 == v2 && vId2 == v1)) {
                 incident_face_id    = i;
                 found_incident_face = true;
@@ -434,47 +436,47 @@ void compute_passing_face_pair(const Arrangement3D &tet_cut_result,
         if (found_incident_face) { break; }
     }
     // assert: found_incident_face == true
-    const auto cell_id = tet_cut_result.positive_cells[incident_face_id];
+    const auto  cell_id = faces[incident_face_id].positive_cell;
+    const auto &cell    = tet_cut_result.cells[cell_id];
 
     // find the two faces
     // 1. bounding the cell
     // 2. passing vertex v1 or v2
-    for (uint32_t i = 0; i < tet_cut_result.cell_faces_count[cell_id]; ++i) {
-        const auto fId = tet_cut_result.faces[cell_id][i];
-        for (uint32_t j = 0; j < tet_cut_result.face_vertices_count[fId]; ++j) {
-            const auto vId      = tet_cut_result.vertices[fId][j];
-            bool       found_v1 = false;
-            bool       found_v2 = false;
+    for (auto fId : cell.faces) {
+        const auto &face     = faces[fId];
+        bool        found_v1 = false;
+        bool        found_v2 = false;
+        for (auto vId : face.vertices) {
             if (vId == v1) {
                 found_v1 = true;
             } else if (vId == v2) {
                 found_v2 = true;
             }
-            if (found_v1 && !found_v2) {
-                // the current face passes v1 but not v2
-                face_orient1.face_id = fId;
-                face_orient1.orient  = (tet_cut_result.positive_cells[fId] == cell_id) ? 1 : -1;
-                return;
-            } else if (!found_v1 && found_v2) {
-                // the current face passes v2 but not v1
-                face_orient2.face_id = fId;
-                face_orient2.orient  = (tet_cut_result.positive_cells[fId] == cell_id) ? 1 : -1;
-                return;
-            }
+        }
+        if (found_v1 && !found_v2) {
+            // the current face passes v1 but not v2
+            face_orient1.face_id = fId;
+            face_orient1.orient  = (face.positive_cell == cell_id) ? 1 : -1;
+        } else if (!found_v1 && found_v2) {
+            // the current face passes v2 but not v1
+            face_orient2.face_id = fId;
+            face_orient2.orient  = (face.positive_cell == cell_id) ? 1 : -1;
         }
     }
 }
 
-void compute_passing_face(const Arrangement3D &tet_cut_result, uint32_t v, uint32_t u, face_with_orient_t &face_orient)
+ISNP_API void compute_passing_face(const arrangement_t &tet_cut_result, uint32_t v, uint32_t u, face_with_orient_t &face_orient)
 {
     // find a face incident to edge v -> u
-    uint32_t incident_face_id;
-    bool     found_incident_face = false;
-    for (uint32_t i = 0; i < tet_cut_result.num_faces; ++i) {
-        const auto num_vert = tet_cut_result.face_vertices_count[i];
+    const auto &faces = tet_cut_result.faces;
+    uint32_t    incident_face_id;
+    bool        found_incident_face = false;
+    for (uint32_t i = 0; i < faces.size(); ++i) {
+        const auto &face     = faces[i];
+        uint32_t    num_vert = static_cast<uint32_t>(face.vertices.size());
         for (uint32_t j = 0; j < num_vert; ++j) {
-            const auto vId1 = tet_cut_result.vertices[i][j];
-            const auto vId2 = tet_cut_result.vertices[i][(j + 1) % num_vert];
+            uint32_t vId1 = face.vertices[j];
+            uint32_t vId2 = face.vertices[(j + 1) % num_vert];
             if ((vId1 == v && vId2 == u) || (vId1 == u && vId2 == v)) {
                 incident_face_id    = i;
                 found_incident_face = true;
@@ -484,28 +486,28 @@ void compute_passing_face(const Arrangement3D &tet_cut_result, uint32_t v, uint3
         if (found_incident_face) { break; }
     }
     // assert: found_incident_face == true
-    const auto cell_id = tet_cut_result.positive_cells[incident_face_id];
+    const auto  cell_id = faces[incident_face_id].positive_cell;
+    const auto &cell    = tet_cut_result.cells[cell_id];
 
     // find the face
     // 1. bounding the cell
     // 2. passing vertex v
-    for (uint32_t i = 0; i < tet_cut_result.cell_faces_count[cell_id]; ++i) {
-        const auto fId = tet_cut_result.faces[cell_id][i];
-        for (uint32_t j = 0; j < tet_cut_result.face_vertices_count[fId]; ++j) {
-            const auto vId     = tet_cut_result.vertices[fId][j];
-            bool       found_v = false;
-            bool       found_u = false;
+    for (auto fId : cell.faces) {
+        const auto &face    = faces[fId];
+        bool        found_v = false;
+        bool        found_u = false;
+        for (auto vId : face.vertices) {
             if (vId == v) {
                 found_v = true;
             } else if (vId == u) {
                 found_u = true;
             }
-            if (found_v && !found_u) {
-                // the current face passes v but not u
-                face_orient.face_id = fId;
-                face_orient.orient  = (tet_cut_result.positive_cells[fId] == cell_id) ? 1 : -1;
-                return;
-            }
+        }
+        if (found_v && !found_u) {
+            // the current face passes v but not u
+            face_orient.face_id = fId;
+            face_orient.orient  = (face.positive_cell == cell_id) ? 1 : -1;
+            return;
         }
     }
 }

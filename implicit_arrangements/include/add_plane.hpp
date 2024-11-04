@@ -3,10 +3,8 @@
 #include <cstdint>
 
 // forward declaration
-template <size_t N>
-struct PlaneGroup;
-template <size_t N>
-struct IAComplex;
+struct plane_group_t;
+struct ia_complex_t;
 
 /**
  * Insert a plane into the existing arrangement complex.
@@ -18,5 +16,4 @@ struct IAComplex;
  * @return The index of an existing plane that is coplanar with the inserted
  *         plane if exists.  Otherwise, return `INVALID_INDEX`.
  */
-uint32_t add_plane(const PlaneGroup<2>& repo, IAComplex<2>& ia_complex, uint32_t plane_index);
-uint32_t add_plane(const PlaneGroup<3>& repo, IAComplex<3>& ia_complex, uint32_t plane_index);
+uint32_t add_plane(const plane_group_t& repo, ia_complex_t& ia_complex, uint32_t plane_index);

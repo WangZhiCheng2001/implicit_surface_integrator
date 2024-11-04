@@ -1,24 +1,21 @@
 #pragma once
 
-#include <stdint.h>
 #include <array>
 
-#include <container/small_vector.hpp>
+#include <implicit_arrangement.hpp>
 #include "eigen_alias.hpp"
 
-using raw_point_t = Eigen::Vector3d;
-
-struct triangle_vertex_indices_t {
-    uint32_t v1, v2, v3;
-};
-
-struct tetrahedron_vertex_indices_t {
-    uint32_t v1, v2, v3, v4;
-};
+using raw_point_t                  = Eigen::Vector3d;
+using triangle_vertex_indices_t    = std::array<uint32_t, 3>;
+using tetrahedron_vertex_indices_t = std::array<uint32_t, 4>;
+template <size_t N>
+using pod_key_t                                = std::array<uint32_t, N>;
+static constexpr uint16_t no_implicit_function = std::numeric_limits<uint16_t>::max();
+static constexpr uint32_t invalid_index        = std::numeric_limits<uint32_t>::max();
 
 struct tetrahedron_mesh_t {
-    small_vector_mp<raw_point_t, 8 * 8 * 8>                      vertices{};
-    small_vector_mp<tetrahedron_vertex_indices_t, 7 * 7 * 7 * 5> indices{};
+    stl_vector_mp<raw_point_t>                  vertices{};
+    stl_vector_mp<tetrahedron_vertex_indices_t> indices{};
 };
 
 struct vertex_header_t {
@@ -73,22 +70,15 @@ struct edge_header_t {
     edge_header_t& operator=(edge_header_t&&)      = default;
 };
 
-template <size_t N>
-using pod_key_t = std::array<uint32_t, N>;
-
-static constexpr uint16_t no_implicit_function = std::numeric_limits<uint16_t>::max();
-static constexpr uint32_t invalid_index        = std::numeric_limits<uint32_t>::max();
-
 /// a polygon in a polygonal mesh
-struct PolygonFace {
-    small_vector_mp<uint32_t, 4>
-        vertex_indices{}; /// a list of polygon's vertex indices (index into some global list of vertices)
-    small_vector_mp<face_header_t, 2> headers{}; /// the local index of this polygon in all the tets that contains it
+struct polygon_face_t {
+    stl_vector_mp<uint32_t> vertex_indices{}; /// a list of polygon's vertex indices (index into some global list of vertices)
+    stl_vector_mp<face_header_t> headers{};   /// the local index of this polygon in all the tets that contains it
     uint32_t implicit_function_index{}; /// function index of the implicit function which its isosurface contains the polygon.
 };
 
 /// vertex of isosurface
-struct IsoVertex {
+struct iso_vertex_t {
     vertex_header_t         header{};
     std::array<uint32_t, 4> simplex_vertex_indices{}; /// ? index into a list of tet vertices
     std::array<uint32_t, 3> implicit_function_indices = {
@@ -100,14 +90,11 @@ struct IsoVertex {
 };
 
 /// Edge of the isosurface
-struct IsoEdge {
+struct iso_edge_t {
     /// Two end-vertics' indices
-    uint32_t                       v1{}, v2{};
-    small_vector_mp<edge_header_t> headers{};
+    uint32_t                     v1{}, v2{};
+    stl_vector_mp<edge_header_t> headers{};
 };
-
-template <typename T>
-using stl_vector_mp = detail::stl_vector_bind<ScalableMemoryPoolAllocator>::type<T>;
 
 namespace std
 {

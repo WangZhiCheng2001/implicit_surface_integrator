@@ -1,20 +1,20 @@
 #include <unordered_set>
 
-#include <container/dynamic_bitset.hpp>
 #include <extract_patch.hpp>
 
 #include <pair_faces.hpp>
+#include "utils/fwd_types.hpp"
 
-void compute_face_order(const IsoEdge                                               &iso_edge,
-                        const decltype(tetrahedron_mesh_t::indices)                 &tets,
-                        const stl_vector_mp<IsoVertex>                              &iso_verts,
-                        const stl_vector_mp<PolygonFace>                            &iso_faces,
-                        const stl_vector_mp<Arrangement3D>                          &cut_results,
-                        const stl_vector_mp<uint32_t>                               &cut_result_index,
-                        const stl_vector_mp<uint32_t>                               &func_in_tet,
-                        const stl_vector_mp<uint32_t>                               &start_index_of_tet,
-                        const flat_hash_map_mp<uint32_t, small_vector_mp<uint32_t>> &incident_tets,
-                        small_vector_mp<half_face_pair_t>                           &ordered_face_pairs)
+ISNP_API void compute_face_order(const iso_edge_t                                          &iso_edge,
+                                 const stl_vector_mp<tetrahedron_vertex_indices_t>         &tets,
+                                 const stl_vector_mp<iso_vertex_t>                         &iso_verts,
+                                 const stl_vector_mp<polygon_face_t>                       &iso_faces,
+                                 const stl_vector_mp<arrangement_t>                        &cut_results,
+                                 const stl_vector_mp<uint32_t>                             &cut_result_index,
+                                 const stl_vector_mp<uint32_t>                             &func_in_tet,
+                                 const stl_vector_mp<uint32_t>                             &start_index_of_tet,
+                                 const flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> &incident_tets,
+                                 stl_vector_mp<half_face_pair_t>                           &ordered_face_pairs)
 {
     using unordered_set_mp_of_index_t =
         std::unordered_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>, ScalableMemoryPoolAllocator<uint32_t>>;
@@ -25,7 +25,7 @@ void compute_face_order(const IsoEdge                                           
     unordered_set_mp_of_index_t containing_tets{};
     for (const auto &face_edge : face_edge_indices) {
         const auto &tetrahedrons = iso_faces[face_edge.face_index].headers;
-        for (const auto &t : tetrahedrons) { containing_tets.insert(t.volume_index); }
+        for (const auto &t : tetrahedrons) { containing_tets.emplace(t.volume_index); }
     }
     // pair faces
     if (containing_tets.size() == 1) {
@@ -65,7 +65,7 @@ void compute_face_order(const IsoEdge                                           
             // tet vertices vId1, vId2 must be degenerate vertices
             // find all tets incident to edge (vId1, vId2)
             unordered_set_mp_of_index_t incident_tets1(incident_tets.at(vId1).begin(), incident_tets.at(vId1).end());
-            small_vector_mp<uint32_t>   common_tetIds{};
+            stl_vector_mp<uint32_t>     common_tetIds{};
             for (const auto tId : incident_tets.at(vId2)) {
                 if (incident_tets1.find(tId) != incident_tets1.end()) { common_tetIds.emplace_back(tId); }
             }
@@ -86,12 +86,11 @@ void compute_face_order(const IsoEdge                                           
             // assert: containing_tets.size() == 2
             const auto                  tet_id1 = *containing_tets.begin();
             const auto                  tet_id2 = *std::prev(containing_tets.end());
-            unordered_set_mp_of_index_t tet1_vIds(&tets[tet_id1].v1, &tets[tet_id1].v4 + 1);
-            small_vector_mp<uint32_t>   common_vIds{};
+            unordered_set_mp_of_index_t tet1_vIds(tets[tet_id1].begin(), tets[tet_id1].end());
+            stl_vector_mp<uint32_t>     common_vIds{};
             common_vIds.reserve(3);
-            for (uint32_t i = 0; i < 4; ++i) {
-                const auto vId = (&(tets[tet_id1].v1))[i];
-                if (vId != v1 && vId != v2) { common_vIds.emplace_back(vId); }
+            for (const auto vId : tets[tet_id2]) {
+                if (tet1_vIds.find(vId) != tet1_vIds.end()) common_vIds.emplace_back(vId);
             }
             // pair half-faces
             pair_faces_in_tets(iso_edge,
@@ -108,15 +107,15 @@ void compute_face_order(const IsoEdge                                           
     }
 }
 
-void pair_faces_in_one_tet(const Arrangement3D               &tet_cut_result,
-                           const stl_vector_mp<PolygonFace>  &iso_faces,
-                           const IsoEdge                     &iso_edge,
-                           small_vector_mp<half_face_pair_t> &ordered_face_pairs)
+ISNP_API void pair_faces_in_one_tet(const arrangement_t                 &tet_cut_result,
+                                    const stl_vector_mp<polygon_face_t> &iso_faces,
+                                    const iso_edge_t                    &iso_edge,
+                                    stl_vector_mp<half_face_pair_t>     &ordered_face_pairs)
 {
     // find tet faces that are incident to the iso_edge
-    small_dynamic_bitset_mp<> is_incident_faces(tet_cut_result.num_faces, false);
+    stl_vector_mp<bool>     is_incident_faces(tet_cut_result.faces.size(), false);
     // map: tet face id --> iso face id
-    small_vector_mp<uint32_t> iso_face_Id_of_face(tet_cut_result.num_faces, invalid_index);
+    stl_vector_mp<uint32_t> iso_face_Id_of_face(tet_cut_result.faces.size(), invalid_index);
     for (const auto &fId_eId_pair : iso_edge.headers) {
         const auto iso_face_id       = fId_eId_pair.face_index;
         const auto face_id           = iso_faces[iso_face_id].headers[0].local_face_index;
@@ -125,33 +124,32 @@ void pair_faces_in_one_tet(const Arrangement3D               &tet_cut_result,
     }
 
     // travel around the edge
-    small_dynamic_bitset_mp<> visited_cell(tet_cut_result.num_cells, false);
+    stl_vector_mp<bool> visited_cell(tet_cut_result.cells.size(), false);
     // start from the first incident face, and travel to its positive cell
-    auto                      iso_face_id1 = iso_edge.headers[0].face_index;
-    auto                      face_id1     = iso_faces[iso_face_id1].headers[0].local_face_index;
-    int8_t                    face_sign_1  = 1;
-    auto                      cell_id      = tet_cut_result.positive_cells[face_id1];
+    auto                iso_face_id1 = iso_edge.headers[0].face_index;
+    auto                face_id1     = iso_faces[iso_face_id1].headers[0].local_face_index;
+    int8_t              face_sign_1  = 1;
+    auto                cell_id      = tet_cut_result.faces[face_id1].positive_cell;
     //
-    auto                      iso_face_id2 = invalid_index;
-    auto                      face_id2     = invalid_index;
-    int8_t                    face_sign_2  = 0; // unknown
+    auto                iso_face_id2 = invalid_index;
+    auto                face_id2     = invalid_index;
+    int8_t              face_sign_2  = 0; // unknown
     while (cell_id != invalid_index && !visited_cell[cell_id]) {
         visited_cell[cell_id] = true;
         // find next face
-        for (uint32_t i = 0; i < tet_cut_result.cell_faces_count[cell_id]; ++i) {
-            const auto fId = tet_cut_result.faces[cell_id][i];
-            if (is_incident_faces[fId] && fId != face_id1) face_id2 = fId;
+        for (const auto &fId : tet_cut_result.cells[cell_id].faces) {
+            if (is_incident_faces[fId] && fId != face_id1) { face_id2 = fId; }
         }
         if (face_id2 == invalid_index) {
             // next face is not found
             break;
         } else {
             // get sign of face2 and find next cell
-            if (tet_cut_result.positive_cells[face_id2] == cell_id) {
-                cell_id     = tet_cut_result.negative_cells[face_id2];
+            if (tet_cut_result.faces[face_id2].positive_cell == cell_id) {
+                cell_id     = tet_cut_result.faces[face_id2].negative_cell;
                 face_sign_2 = 1;
             } else {
-                cell_id     = tet_cut_result.positive_cells[face_id2];
+                cell_id     = tet_cut_result.faces[face_id2].positive_cell;
                 face_sign_2 = -1;
             }
             // add (face1, face2) to the list of face pairs
@@ -170,27 +168,26 @@ void pair_faces_in_one_tet(const Arrangement3D               &tet_cut_result,
     iso_face_id1 = iso_edge.headers[0].face_index;
     face_id1     = iso_faces[iso_face_id1].headers[0].local_face_index;
     face_sign_1  = -1;
-    cell_id      = tet_cut_result.negative_cells[face_id1];
+    cell_id      = tet_cut_result.faces[face_id1].negative_cell;
     iso_face_id2 = invalid_index;
     face_id2     = invalid_index;
     face_sign_2  = 0;
     while (cell_id != invalid_index && !visited_cell[cell_id]) {
         visited_cell[cell_id] = true;
         // find next face
-        for (uint32_t i = 0; i < tet_cut_result.cell_faces_count[cell_id]; ++i) {
-            const auto fId = tet_cut_result.faces[cell_id][i];
-            if (is_incident_faces[fId] && fId != face_id1) face_id2 = fId;
+        for (const auto &fId : tet_cut_result.cells[cell_id].faces) {
+            if (is_incident_faces[fId] && fId != face_id1) { face_id2 = fId; }
         }
         if (face_id2 == invalid_index) {
             // next face is not found
             break;
         } else {
             // get sign of face2 and find next cell
-            if (tet_cut_result.positive_cells[face_id2] == cell_id) {
-                cell_id     = tet_cut_result.negative_cells[face_id2];
+            if (tet_cut_result.faces[face_id2].positive_cell == cell_id) {
+                cell_id     = tet_cut_result.faces[face_id2].negative_cell;
                 face_sign_2 = 1;
             } else {
-                cell_id     = tet_cut_result.positive_cells[face_id2];
+                cell_id     = tet_cut_result.faces[face_id2].positive_cell;
                 face_sign_2 = -1;
             }
             // add (face1, face2) to the list of face pairs
@@ -207,16 +204,16 @@ void pair_faces_in_one_tet(const Arrangement3D               &tet_cut_result,
     }
 }
 
-void pair_faces_in_tets(const IsoEdge                               &iso_edge,
-                        const small_vector_mp<uint32_t>             &containing_simplex,
-                        const small_vector_mp<uint32_t>             &containing_tetIds,
-                        const decltype(tetrahedron_mesh_t::indices) &tets,
-                        const stl_vector_mp<PolygonFace>            &iso_faces,
-                        const stl_vector_mp<Arrangement3D>          &cut_results,
-                        const stl_vector_mp<uint32_t>               &cut_result_index,
-                        const stl_vector_mp<uint32_t>               &func_in_tet,
-                        const stl_vector_mp<uint32_t>               &start_index_of_tet,
-                        small_vector_mp<half_face_pair_t>           &ordered_face_pairs)
+ISNP_API void pair_faces_in_tets(const iso_edge_t                                  &iso_edge,
+                                 const stl_vector_mp<uint32_t>                     &containing_simplex,
+                                 const stl_vector_mp<uint32_t>                     &containing_tetIds,
+                                 const stl_vector_mp<tetrahedron_vertex_indices_t> &tets,
+                                 const stl_vector_mp<polygon_face_t>               &iso_faces,
+                                 const stl_vector_mp<arrangement_t>                &cut_results,
+                                 const stl_vector_mp<uint32_t>                     &cut_result_index,
+                                 const stl_vector_mp<uint32_t>                     &func_in_tet,
+                                 const stl_vector_mp<uint32_t>                     &start_index_of_tet,
+                                 stl_vector_mp<half_face_pair_t>                   &ordered_face_pairs)
 {
     //// pre-processing
     // collect all iso-faces incident to the iso-edge
@@ -240,14 +237,14 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
         uint32_t    pId1, pId2;
         uint32_t    vId;
         for (uint32_t i = 0; i < 4; ++i) {
-            vId = (&tet1.v1)[i];
+            vId = tet1[i];
             if (vId != vId1 && vId != vId2 && vId != vId3) {
                 pId1 = i;
                 break;
             }
         }
         for (uint32_t i = 0; i < 4; ++i) {
-            vId = (&tet2.v1)[i];
+            vId = tet2[i];
             if (vId != vId1 && vId != vId2 && vId != vId3) {
                 pId2 = i;
                 break;
@@ -264,11 +261,10 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
         uint32_t                                      vId;
         pod_key_t<3>                                  tri;
         for (const auto tId : containing_tetIds) {
-            const auto tet_ptr = &tets[tId].v1;
             for (uint32_t i = 0; i < 4; ++i) {
-                vId = tet_ptr[i];
+                vId = tets[tId][i];
                 if (vId != vId1 && vId != vId2) {
-                    tri = {tet_ptr[(i + 1) % 4], tet_ptr[(i + 2) % 4], tet_ptr[(i + 3) % 4]};
+                    tri = {tets[tId][(i + 1) % 4], tets[tId][(i + 2) % 4], tets[tId][(i + 3) % 4]};
                     std::sort(tri.begin(), tri.end());
                     auto iter_inserted = tet_plane_of_tri.try_emplace(tri, face_header_t{tId, i});
                     if (!iter_inserted.second) {
@@ -293,10 +289,10 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
     // map: (i,j,k) -> (tet_Id, tet_face_Id)
     flat_hash_map_mp<pod_key_t<3>, face_header_t>  face_on_tetFace{};
     // auxiliary data
-    small_dynamic_bitset_mp<>                      is_boundary_vert{};
-    small_dynamic_bitset_mp<>                      is_boundary_face{};
-    small_vector_mp<uint32_t>                      boundary_vId_of_vert{};
-    small_vector_mp<uint32_t>                      face_verts{};
+    stl_vector_mp<bool>                            is_boundary_vert{};
+    stl_vector_mp<bool>                            is_boundary_face{};
+    stl_vector_mp<uint32_t>                        boundary_vId_of_vert{};
+    stl_vector_mp<uint32_t>                        face_verts{};
     pod_key_t<3>                                   key3;
     pod_key_t<5>                                   key5;
     std::array<bool, 4>                            used_pId;
@@ -312,7 +308,7 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                     // face fi lies on a tet boundary incident to iso-edge
                     pod_key_t<3> bounary_face_verts;
                     for (uint32_t j = 0; j < 3; ++j) {
-                        auto key           = (&tets[i].v1)[(fi + j + 1) % 4];
+                        auto key           = tets[i][(fi + j + 1) % 4];
                         auto iter_inserted = vert_on_tetVert.try_emplace(key, num_boundary_vert);
                         if (iter_inserted.second) { num_boundary_vert++; }
                         bounary_face_verts[j] = iter_inserted.first->second;
@@ -329,31 +325,32 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
         } else {
             // non-empty tet i
             const auto &arrangement = cut_results[cut_result_index[i]];
+            const auto &vertices    = arrangement.vertices;
+            const auto &faces       = arrangement.faces;
             auto        start_index = start_index_of_tet[i];
             auto        num_func    = start_index_of_tet[i + 1] - start_index;
             // find vertices and faces on tet boundary incident to iso-edge
-            is_boundary_vert.clear();
-            is_boundary_vert.resize(arrangement.num_vertices, false);
+            is_boundary_vert.assign(arrangement.vertices.size(), false);
             is_boundary_face.clear();
-            for (uint32_t j = 0; j < arrangement.num_faces; ++j) {
-                is_boundary_face.push_back(false);
-                if (arrangement.supporting_planes[j] < 4
-                    && identical_tet_planes.find({i, arrangement.supporting_planes[j]}) != identical_tet_planes.end()) {
-                    is_boundary_face[is_boundary_face.size() - 1] = true;
-                    for (uint32_t k = 0; k < arrangement.face_vertices_count[j]; ++k) {
-                        is_boundary_vert[arrangement.vertices[j][k]] = true;
-                    }
+            is_boundary_face.reserve(faces.size());
+            for (const auto &face : faces) {
+                is_boundary_face.emplace_back(false);
+                if (face.supporting_plane < 4
+                    && identical_tet_planes.find({i, face.supporting_plane}) != identical_tet_planes.end()) {
+                    is_boundary_face.back() = true;
+                    for (const auto &vid : face.vertices) { is_boundary_vert[vid] = true; }
                 }
             }
             // map: local vert index --> boundary vert index
             boundary_vId_of_vert.clear();
+            boundary_vId_of_vert.reserve(vertices.size());
             // create boundary vertices
-            for (uint32_t j = 0; j < arrangement.num_vertices; j++) {
+            for (uint32_t j = 0; j < vertices.size(); j++) {
                 boundary_vId_of_vert.emplace_back(invalid_index);
                 if (is_boundary_vert[j]) {
-                    uint32_t   num_boundary_planes = 0;
-                    uint32_t   num_impl_planes     = 0;
-                    const auto vertex              = &arrangement.points[j].i0;
+                    uint32_t    num_boundary_planes = 0;
+                    uint32_t    num_impl_planes     = 0;
+                    const auto &vertex              = vertices[j];
                     // vertex.size() == 3
                     for (uint32_t k = 0; k < 3; k++) {
                         if (vertex[k] > 3) { // plane 0,1,2,3 are tet boundaries
@@ -367,27 +364,20 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                     switch (num_boundary_planes) {
                         case 2: // on tet edge
                         {
-                            used_pId[0]                = false;
-                            used_pId[1]                = false;
-                            used_pId[2]                = false;
-                            used_pId[3]                = false;
+                            used_pId.fill(false);
                             used_pId[boundary_pIds[0]] = true;
                             used_pId[boundary_pIds[1]] = true;
                             //                        std::array<uint32_t, 2> vIds;
                             uint32_t num_vIds          = 0;
                             for (uint32_t k = 0; k < 4; k++) {
                                 if (!used_pId[k]) {
-                                    vIds2[num_vIds] = (&tets[i].v1)[k];
+                                    vIds2[num_vIds] = tets[i][k];
                                     ++num_vIds;
                                 }
                             }
                             uint32_t vId1 = vIds2[0];
                             uint32_t vId2 = vIds2[1];
-                            if (vId1 > vId2) {
-                                uint32_t tmp = vId1;
-                                vId1         = vId2;
-                                vId2         = tmp;
-                            }
+                            if (vId1 > vId2) std::swap(vId1, vId2);
                             key3[0]            = vId1;
                             key3[1]            = vId2;
                             key3[2]            = implicit_pIds[0];
@@ -402,16 +392,12 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                             uint32_t num_vIds = 0;
                             for (uint32_t k = 0; k < 4; k++) {
                                 if (k != pId) {
-                                    vIds3[num_vIds] = (&tets[i].v1)[k];
+                                    vIds3[num_vIds] = tets[i][k];
                                     ++num_vIds;
                                 }
                             }
                             std::sort(vIds3.begin(), vIds3.end());
-                            key5[0]            = vIds3[0];
-                            key5[1]            = vIds3[1];
-                            key5[2]            = vIds3[2];
-                            key5[3]            = implicit_pIds[0];
-                            key5[4]            = implicit_pIds[1];
+                            key5               = {vIds3[0], vIds3[1], vIds3[2], implicit_pIds[0], implicit_pIds[1]};
                             auto iter_inserted = vert_on_tetFace.try_emplace(key5, num_boundary_vert);
                             if (iter_inserted.second) { num_boundary_vert++; }
                             boundary_vId_of_vert.back() = iter_inserted.first->second;
@@ -419,10 +405,7 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                         }
                         case 3: // on tet vertex
                         {
-                            used_pId[0] = false;
-                            used_pId[1] = false;
-                            used_pId[2] = false;
-                            used_pId[3] = false;
+                            used_pId.fill(false);
                             for (const auto &pId : boundary_pIds) { used_pId[pId] = true; }
                             uint32_t vId;
                             for (uint32_t k = 0; k < 4; k++) {
@@ -431,7 +414,7 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                                     break;
                                 }
                             }
-                            auto key           = (&tets[i].v1)[vId];
+                            auto key           = tets[i][vId];
                             auto iter_inserted = vert_on_tetVert.try_emplace(key, num_boundary_vert);
                             if (iter_inserted.second) { num_boundary_vert++; }
                             boundary_vId_of_vert.back() = iter_inserted.first->second;
@@ -442,12 +425,10 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                 }
             }
             // pair boundary faces
-            for (uint32_t j = 0; j < arrangement.num_faces; ++j) {
+            for (uint32_t j = 0; j < faces.size(); ++j) {
                 if (is_boundary_face[j]) {
                     face_verts.clear();
-                    for (uint32_t k = 0; k < arrangement.face_vertices_count[j]; ++k) {
-                        face_verts.emplace_back(boundary_vId_of_vert[arrangement.vertices[j][k]]);
-                    }
+                    for (auto vId : faces[j].vertices) { face_verts.emplace_back(boundary_vId_of_vert[vId]); }
                     compute_iso_face_key(face_verts, key3);
                     auto iter_inserted = face_on_tetFace.try_emplace(key3, face_header_t{i, j});
                     if (!iter_inserted.second) {
@@ -468,7 +449,8 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
                                                                                      int8_t       &iso_orient) {
         iso_face_id              = iso_face_Id_of_face[tet_face];
         const auto &cell_complex = cut_results[cut_result_index[tet_face.volume_index]];
-        const auto  supp_pId     = cell_complex.supporting_planes[tet_face.local_face_index];
+        const auto &faces        = cell_complex.faces;
+        auto        supp_pId     = faces[tet_face.local_face_index].supporting_plane;
         if (supp_pId > 3) { // plane 0,1,2,3 are tet boundary planes
             // supporting plane is not a tet boundary plane
             // assume: supporting plane is the iso-surface of smallest-index implicit function
@@ -478,8 +460,7 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
             const auto uid     = cell_complex.unique_plane_indices[supp_pId];
             // find the smallest-index non-boundary plane
             uint32_t   min_pId = std::numeric_limits<uint32_t>::max();
-            for (uint32_t i = 0; i < cell_complex.unique_plane_count[uid]; ++i) {
-                const auto pId = cell_complex.unique_planes[uid][i];
+            for (auto pId : cell_complex.unique_planes[uid]) {
                 if (pId > 3 && pId < min_pId) { min_pId = pId; }
             }
             // orient is the orientation of supporting plane
@@ -517,20 +498,17 @@ void pair_faces_in_tets(const IsoEdge                               &iso_edge,
             // non-empty tet
             const auto &cell_complex = cut_results[cut_result_index[tet_id]];
             uint32_t    cell_id =
-                (orient == 1 ? cell_complex.positive_cells[tet_face_id] : cell_complex.negative_cells[tet_face_id]);
+                (orient == 1 ? cell_complex.faces[tet_face_id].positive_cell : cell_complex.faces[tet_face_id].negative_cell);
             if (cell_id != invalid_index) {
-                for (uint32_t i = 0; i < cell_complex.num_cells; ++i) {
-                    for (uint32_t j = 0; j < cell_complex.cell_faces_count[i]; ++j) {
-                        const auto fi = cell_complex.faces[i][j];
-                        if (fi != tet_face_id
-                            && (iso_face_Id_of_face.find({tet_id, fi}) != iso_face_Id_of_face.end()
-                                || opposite_face.find({tet_id, fi}) != opposite_face.end())) {
-                            face_next = {tet_id, fi};
-                            break;
-                        }
+                for (auto fi : cell_complex.cells[cell_id].faces) {
+                    if (fi != tet_face_id
+                        && (iso_face_Id_of_face.find({tet_id, fi}) != iso_face_Id_of_face.end()
+                            || opposite_face.find({tet_id, fi}) != opposite_face.end())) {
+                        face_next = {tet_id, fi};
+                        break;
                     }
                 }
-                orient_next = cell_complex.positive_cells[face_next.local_face_index] == cell_id ? 1 : -1;
+                orient_next = cell_complex.faces[face_next.local_face_index].positive_cell == cell_id ? 1 : -1;
             } else {
                 // cell is None, so the face lies on tet boundary
                 find_next(opposite_face[face], 1, face_next, orient_next, find_next);

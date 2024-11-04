@@ -1,4 +1,8 @@
-#include <implicit_predicates.h>
+#include <cmath>
+#include <cassert>
+#include <type_traits>
+
+#include <implicit_predicates.hpp>
 
 #include "internal/det2.cpp"
 #include "internal/det3.cpp"
@@ -11,31 +15,27 @@
 #include "internal/diff_det4.cpp"
 #include "internal/diff_det4_one.cpp"
 
-#include <cmath>
-#include <cassert>
-#include <type_traits>
-
 template <typename T>
-Orientation sign_of(T val)
+orientation sign_of(T val)
 {
     // Check for nan and inf.
     if constexpr (std::is_same<T, double>::value) assert(std::isfinite(val));
 
     if (val > 0)
-        return ORIENTATION_POSITIVE;
+        return orientation::positive;
     else if (val < 0)
-        return ORIENTATION_NEGATIVE;
+        return orientation::negative;
     else
-        return ORIENTATION_ZERO;
+        return orientation::zero;
 }
 
 EXTERN_C_BEGIN
 
-API Orientation orient1d(const double f0[2], const double f1[2])
+IP_API orientation orient1d(const double f0[2], const double f1[2])
 {
     if (f0[0] == f0[1]) {
         // Function 0 is constant.
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (f0[1] < f0[0]) {
         return sign_of(det2(f0[0], f0[1], f1[0], f1[1]));
     } else {
@@ -43,11 +43,11 @@ API Orientation orient1d(const double f0[2], const double f1[2])
     }
 }
 
-API Orientation orient1d_nonrobust(const double f0[2], const double f1[2])
+IP_API orientation orient1d_nonrobust(const double f0[2], const double f1[2])
 {
     if (f0[0] == f0[1]) {
         // Function 0 is constant.
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (f0[1] < f0[0]) {
         return sign_of(f0[0] * f1[1] - f0[1] * f1[0]);
     } else {
@@ -55,7 +55,7 @@ API Orientation orient1d_nonrobust(const double f0[2], const double f1[2])
     }
 }
 
-API Orientation orient2d(const double f0[3], const double f1[3], const double f2[3])
+IP_API orientation orient2d(const double f0[3], const double f1[3], const double f2[3])
 {
     // clang-format off
     const auto denominator = det3(
@@ -69,7 +69,7 @@ API Orientation orient2d(const double f0[3], const double f1[3], const double f2
     // clang-format on
 
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(numerator);
     } else {
@@ -77,7 +77,7 @@ API Orientation orient2d(const double f0[3], const double f1[3], const double f2
     }
 }
 
-API Orientation orient2d_nonrobust(const double f0[3], const double f1[3], const double f2[3])
+IP_API orientation orient2d_nonrobust(const double f0[3], const double f1[3], const double f2[3])
 {
     auto det2 = [](double a, double b, double c, double d) { return a * d - b * c; };
 
@@ -88,7 +88,7 @@ API Orientation orient2d_nonrobust(const double f0[3], const double f1[3], const
     const auto denominator = d0 + d1 + d2;
 
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(f2[0] * d0 + f2[1] * d1 + f2[2] * d2);
     } else {
@@ -96,7 +96,7 @@ API Orientation orient2d_nonrobust(const double f0[3], const double f1[3], const
     }
 }
 
-API Orientation orient3d(const double f0[4], const double f1[4], const double f2[4], const double f3[4])
+IP_API orientation orient3d(const double f0[4], const double f1[4], const double f2[4], const double f3[4])
 {
     // clang-format off
     const auto numerator = det4(
@@ -111,7 +111,7 @@ API Orientation orient3d(const double f0[4], const double f1[4], const double f2
                 1,     1,     1,     1);
     // clang-format on
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(numerator);
     } else {
@@ -119,7 +119,7 @@ API Orientation orient3d(const double f0[4], const double f1[4], const double f2
     }
 }
 
-API Orientation orient3d_nonrobust(const double f0[4], const double f1[4], const double f2[4], const double f3[4])
+IP_API orientation orient3d_nonrobust(const double f0[4], const double f1[4], const double f2[4], const double f3[4])
 {
     // clang-format off
     const auto d0 = -det3(
@@ -143,7 +143,7 @@ API Orientation orient3d_nonrobust(const double f0[4], const double f1[4], const
     const auto denominator = d0 + d1 + d2 + d3;
 
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(d0 * f3[0] + d1 * f3[1] + d2 * f3[2] + d3 * f3[3]);
     } else {
@@ -151,7 +151,7 @@ API Orientation orient3d_nonrobust(const double f0[4], const double f1[4], const
     }
 }
 
-API Orientation orient4d(const double f0[5], const double f1[5], const double f2[5], const double f3[5], const double f4[5])
+IP_API orientation orient4d(const double f0[5], const double f1[5], const double f2[5], const double f3[5], const double f4[5])
 {
     // clang-format off
     const auto numerator = det5(
@@ -168,7 +168,7 @@ API Orientation orient4d(const double f0[5], const double f1[5], const double f2
                 1,     1,     1,     1,     1);
     // clang-format on
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(numerator);
     } else {
@@ -176,7 +176,7 @@ API Orientation orient4d(const double f0[5], const double f1[5], const double f2
     }
 }
 
-API Orientation
+IP_API orientation
     orient4d_nonrobust(const double f0[5], const double f1[5], const double f2[5], const double f3[5], const double f4[5])
 {
     // clang-format off
@@ -210,7 +210,7 @@ API Orientation
     const auto denominator = d0 + d1 + d2 + d3 + d4;
 
     if (denominator == 0) {
-        return ORIENTATION_INVALID;
+        return orientation::invalid;
     } else if (denominator > 0) {
         return sign_of(d0 * f4[0] + d1 * f4[1] + d2 * f4[2] + d3 * f4[3] + d4 * f4[4]);
     } else {

@@ -1,7 +1,10 @@
-#include <implicit_surface_network_processor.hpp>
-#include "container/dynamic_bitset.hpp"
-#include "implicit_arrangement.h"
+#include "extract_patch.hpp"
+#include "patch_connectivity.hpp"
 #include "pair_faces.hpp"
+#include "topology_ray_shooting.hpp"
+#include "timer/scoped_timer.hpp"
+
+#include <implicit_surface_network_processor.hpp>
 
 bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manager)
 {
@@ -18,16 +21,23 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     // EDIT: we only need to identify the sdf value is inside or on surface/outside
     // Eigen::Matrix<int8_t, Eigen::Dynamic, Eigen::Dynamic> scalar_field_signs(num_funcs, num_vert);
     auto                scalar_field_sign = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
-    dynamic_bitset_mp<> is_positive_scalar_field_sign(num_funcs * num_vert, false);
-    dynamic_bitset_mp<> is_negative_scalar_field_sign(num_funcs * num_vert, false);
-    dynamic_bitset_mp<> is_degenerate_vertex(num_vert, false);
+    stl_vector_mp<bool> is_positive_scalar_field_sign(num_funcs * num_vert, false);
+    stl_vector_mp<bool> is_negative_scalar_field_sign(num_funcs * num_vert, false);
+    stl_vector_mp<bool> is_degenerate_vertex(num_vert, false);
+    bool                has_degenerate_vertex{};
     {
         timers_manager.push_timer("identify sdf signs");
         for (size_t i = 0; i < sdf_scalar_field.size(); ++i) {
             const auto sign = scalar_field_sign(*(sdf_scalar_field.data() + i));
-            is_positive_scalar_field_sign.set(i, sign > 0);
-            is_negative_scalar_field_sign.set(i, sign < 0);
-            if (sign == 0) { is_degenerate_vertex.set(i); }
+            switch (sign) {
+                case -1: is_negative_scalar_field_sign[i] = true; break;
+                case 0:
+                    is_degenerate_vertex[i] = true;
+                    has_degenerate_vertex   = true;
+                    break;
+                case 1:  is_positive_scalar_field_sign[i] = true; break;
+                default: break;
+            }
         }
         timers_manager.pop_timer("identify sdf signs");
     }
@@ -43,12 +53,11 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         start_index_of_tet.reserve(num_tets + 1);
         start_index_of_tet.emplace_back(0);
         for (Eigen::Index i = 0; i < num_tets; ++i) {
-            const auto tet_ptr = &background_mesh.indices[i].v1;
             for (Eigen::Index j = 0; j < num_funcs; ++j) {
                 uint32_t pos_count{}, neg_count{};
                 for (uint32_t k = 0; k < 4; ++k) {
-                    if (is_positive_scalar_field_sign[tet_ptr[k] * num_funcs + j]) pos_count++;
-                    if (is_negative_scalar_field_sign[tet_ptr[k] * num_funcs + j]) neg_count++;
+                    if (is_positive_scalar_field_sign[background_mesh.indices[i][k] * num_funcs + j]) pos_count++;
+                    if (is_negative_scalar_field_sign[background_mesh.indices[i][k] * num_funcs + j]) neg_count++;
                 }
                 // if (scalar_field_signs(j, tet_ptr[k]) == 1) pos_count++;
                 // tets[i].size() == 4, this means that the function is active in this tet
@@ -62,17 +71,16 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
 
     // compute arrangement in each tet
     // HINT: we skip robust test for this part for now
-    stl_vector_mp<Arrangement3D> cut_results{};
-    small_dynamic_bitset_mp<>    cut_results_need_free_flags{};
+    stl_vector_mp<arrangement_t> cut_results{};
     stl_vector_mp<uint32_t>      cut_result_index{};
     uint32_t                     num_1_func    = 0;
     uint32_t                     num_2_func    = 0;
     uint32_t                     num_more_func = 0;
     {
-        timers_manager.push_timer("implicit arrangements calculation in total");
+        // timers_manager.push_timer("implicit arrangements calculation in total");
         cut_results.reserve(num_intersecting_tet);
         cut_result_index.reserve(num_tets);
-        small_vector_mp<Plane3D> planes{};
+        stl_vector_mp<plane_t> planes{};
         planes.reserve(3);
         try {
             for (uint32_t i = 0; i < num_tets; ++i) {
@@ -91,15 +99,14 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                 planes.clear();
                 for (uint32_t j = 0; j < active_funcs_in_curr_tet; ++j) {
                     const auto fid = func_in_tet[start_index + j];
-                    planes.emplace_back(Plane3D{sdf_scalar_field(fid, tet.v1),
-                                                sdf_scalar_field(fid, tet.v2),
-                                                sdf_scalar_field(fid, tet.v2),
-                                                sdf_scalar_field(fid, tet.v3)});
+                    planes.emplace_back(plane_t{sdf_scalar_field(fid, tet[0]),
+                                                sdf_scalar_field(fid, tet[1]),
+                                                sdf_scalar_field(fid, tet[2]),
+                                                sdf_scalar_field(fid, tet[3])});
                 }
                 cut_result_index.emplace_back(static_cast<uint32_t>(cut_results.size()));
-                auto result = compute_arrangement_3d(planes.data(), static_cast<uint32_t>(planes.size()));
-                cut_results.emplace_back(std::move(result.arrangement));
-                cut_results_need_free_flags.push_back(std::move(result.is_runtime_computed));
+                auto result = compute_arrangement(planes);
+                cut_results.emplace_back(std::move(result));
                 switch (active_funcs_in_curr_tet) {
                     case 1:
                         timers_manager.pop_timer("implicit arrangements calculation (1 func)");
@@ -119,11 +126,11 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
             std::cout << "Error: " << e.what() << std::endl;
             return false;
         }
-        timers_manager.pop_timer("implicit arrangements calculation in total");
+        // timers_manager.pop_timer("implicit arrangements calculation in total");
     }
 
     // extract arrangement mesh: combining results from all tets to produce a mesh
-    stl_vector_mp<IsoVertex> iso_verts{};
+    stl_vector_mp<iso_vertex_t> iso_verts{};
     {
         timers_manager.push_timer("extract arrangement mesh");
         extract_iso_mesh(num_1_func,
@@ -147,7 +154,7 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     }
 
     //  compute iso-edges and edge-face connectivity
-    stl_vector_mp<small_vector_mp<uint32_t>> edges_of_iso_face{};
+    stl_vector_mp<stl_vector_mp<uint32_t>> edges_of_iso_face{};
     {
         timers_manager.push_timer("compute iso-edge and edge-face connectivity");
         compute_patch_edges(iso_faces, edges_of_iso_face, iso_edges);
@@ -191,14 +198,15 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     }
 
     // compute incident tets for degenerate vertices
-    flat_hash_map_mp<uint32_t, small_vector_mp<uint32_t>> incident_tets{};
+    flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> incident_tets{};
     {
         timers_manager.push_timer("compute incident tets for degenerate vertices");
-        if (!is_degenerate_vertex.none()) {
+        if (has_degenerate_vertex) {
             for (uint32_t i = 0; i < num_tets; ++i) {
-                const auto tet = &background_mesh.indices[i].v1;
                 for (uint32_t j = 0; j < 4; ++j) {
-                    if (is_degenerate_vertex[tet[j]]) { incident_tets[tet[j]].emplace_back(i); }
+                    if (is_degenerate_vertex[background_mesh.indices[i][j]]) {
+                        incident_tets[background_mesh.indices[i][j]].emplace_back(i);
+                    }
                 }
             }
         }
@@ -207,8 +215,8 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
 
     // compute order of patches around chains
     // pair<uint32_t, int8_t> : pair (iso-face index, iso-face orientation)
-    stl_vector_mp<small_vector_mp<half_face_pair_t>>  half_face_pair_list{};
-    stl_vector_mp<small_vector_mp<half_patch_pair_t>> half_patch_pair_list{};
+    stl_vector_mp<stl_vector_mp<half_face_pair_t>>  half_face_pair_list{};
+    stl_vector_mp<stl_vector_mp<half_patch_pair_t>> half_patch_pair_list{};
     {
         timers_manager.push_timer("compute order of patches around chains");
         half_face_pair_list.resize(chains.size());
@@ -249,9 +257,9 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     // group patches into shells and components
     // each shell is represented as a list of half-patch indices
     // each component is represented as a list of patch indices
-    stl_vector_mp<uint32_t>                  shell_of_half_patch{};
-    stl_vector_mp<small_vector_mp<uint32_t>> components{};
-    stl_vector_mp<uint32_t>                  component_of_patch{};
+    stl_vector_mp<uint32_t>                shell_of_half_patch{};
+    stl_vector_mp<stl_vector_mp<uint32_t>> components{};
+    stl_vector_mp<uint32_t>                component_of_patch{};
     {
         timers_manager.push_timer("group patches into shells and components");
         compute_shells_and_components(static_cast<uint32_t>(patches.size()),
@@ -293,27 +301,14 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     }
 
     // fetching function labels (True, False) for each cell
-    small_dynamic_bitset_mp<> sample_function_label{};
-    sample_function_label.reserve(num_funcs);
-    sample_function_label.append(is_positive_scalar_field_sign.data(),
-                                 is_positive_scalar_field_sign.data() + num_funcs / sizeof(size_t) + 1);
-    // for (size_t i = 0; i < num_funcs; i++) {
-    //     // sample_function_label.set(i, (scalar_field_signs(i, size_t{0}) == 1) ? true : false);
-    //     sample_function_label.set(i, scalar_field_signs[i]);
-    // }
-    std::cout << "test" << std::endl;
+    stl_vector_mp<bool> sample_function_label(is_positive_scalar_field_sign.begin(),
+                                              is_positive_scalar_field_sign.begin() + num_funcs + 1);
     cell_function_labels = sign_propagation(arrangement_cells,
                                             shell_of_half_patch,
                                             shells,
                                             patch_function_labels,
                                             num_funcs,
                                             sample_function_label);
-    std::cout << "test" << std::endl;
-
-    // free Arranger3D runtime memory iff necessary
-    for (uint32_t i = 0; i < cut_results.size(); ++i) {
-        if (cut_results_need_free_flags[i]) { free_arrangement_3d(&cut_results[i]); }
-    }
 
     return true;
 }

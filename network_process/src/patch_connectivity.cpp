@@ -3,15 +3,13 @@
 #include <container/hashmap.hpp>
 
 #include <patch_connectivity.hpp>
-#include "container/dynamic_bitset.hpp"
-#include "utils/fwd_types.hpp"
 
-void compute_patch_edges(const stl_vector_mp<PolygonFace>&         patch_faces,
-                         stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_face,
-                         stl_vector_mp<IsoEdge>&                   patch_edges)
+ISNP_API void compute_patch_edges(const stl_vector_mp<polygon_face_t>&    patch_faces,
+                                  stl_vector_mp<stl_vector_mp<uint32_t>>& edges_of_face,
+                                  stl_vector_mp<iso_edge_t>&              patch_edges)
 {
     uint32_t max_num_edge = 0;
-    for (const auto& iso_face : patch_faces) { max_num_edge += iso_face.vertex_indices.size(); }
+    for (const auto& iso_face : patch_faces) { max_num_edge += static_cast<uint32_t>(iso_face.vertex_indices.size()); }
     patch_edges.reserve(max_num_edge / 2);
     edges_of_face.reserve(patch_faces.size());
     uint32_t                                                  num_iso_edge{};
@@ -19,7 +17,7 @@ void compute_patch_edges(const stl_vector_mp<PolygonFace>&         patch_faces,
     flat_hash_map_mp<std::pair<uint32_t, uint32_t>, uint32_t> edge_id{};
     for (uint32_t i = 0; i < patch_faces.size(); i++) {
         auto&          face       = patch_faces[i];
-        const uint32_t num_edge   = face.vertex_indices.size();
+        const uint32_t num_edge   = static_cast<uint32_t>(face.vertex_indices.size());
         // emplace at back of edges_of_face a vector<uint32_t> of size num_edge
         auto&          face_edges = edges_of_face.emplace_back(num_edge);
         for (uint32_t j = 0; j < num_edge; j++) {
@@ -45,13 +43,13 @@ void compute_patch_edges(const stl_vector_mp<PolygonFace>&         patch_faces,
     }
 }
 
-void compute_patches(const stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_face,
-                     const stl_vector_mp<IsoEdge>&                   patch_edges,
-                     const stl_vector_mp<PolygonFace>&               patch_faces,
-                     stl_vector_mp<small_vector_mp<uint32_t>>&       patches,
-                     stl_vector_mp<uint32_t>&                        patch_function_label)
+ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edges_of_face,
+                              const stl_vector_mp<iso_edge_t>&              patch_edges,
+                              const stl_vector_mp<polygon_face_t>&          patch_faces,
+                              stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
+                              stl_vector_mp<uint32_t>&                      patch_function_label)
 {
-    dynamic_bitset_mp<> visited_face(edges_of_face.size(), false);
+    stl_vector_mp<bool> visited_face(edges_of_face.size(), false);
     for (uint32_t i = 0; i < edges_of_face.size(); i++) {
         if (!visited_face[i]) {
             // new patch
@@ -81,11 +79,11 @@ void compute_patches(const stl_vector_mp<small_vector_mp<uint32_t>>& edges_of_fa
     }
 }
 
-void compute_chains(const stl_vector_mp<IsoEdge>&                   patch_edges,
-                    const stl_vector_mp<small_vector_mp<uint32_t>>& non_manifold_edges_of_vert,
-                    stl_vector_mp<small_vector_mp<uint32_t>>&       chains)
+ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch_edges,
+                             const stl_vector_mp<stl_vector_mp<uint32_t>>& non_manifold_edges_of_vert,
+                             stl_vector_mp<stl_vector_mp<uint32_t>>&       chains)
 {
-    dynamic_bitset_mp<> visited_edge(patch_edges.size(), false);
+    stl_vector_mp<bool> visited_edge(patch_edges.size(), false);
     for (uint32_t i = 0; i < patch_edges.size(); i++) {
         if (!visited_edge[i] && patch_edges[i].headers.size() > 2) {
             // unvisited non-manifold iso-edge (not a boundary edge)
@@ -125,12 +123,12 @@ void compute_chains(const stl_vector_mp<IsoEdge>&                   patch_edges,
     }
 }
 
-void compute_shells_and_components(uint32_t                                                 num_patch,
-                                   const stl_vector_mp<small_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
-                                   stl_vector_mp<small_vector_mp<uint32_t>>&                shells,
-                                   stl_vector_mp<uint32_t>&                                 shell_of_half_patch,
-                                   stl_vector_mp<small_vector_mp<uint32_t>>&                components,
-                                   stl_vector_mp<uint32_t>&                                 component_of_patch)
+ISNP_API void compute_shells_and_components(uint32_t                                               num_patch,
+                                            const stl_vector_mp<stl_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                shells,
+                                            stl_vector_mp<uint32_t>&                               shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                components,
+                                            stl_vector_mp<uint32_t>&                               component_of_patch)
 {
     // (patch i, 1) <--> 2i,  (patch i, -1) <--> 2i+1
     // compute half-patch adjacency list
@@ -148,7 +146,7 @@ void compute_shells_and_components(uint32_t                                     
     }
     // find connected component of half-patch adjacency graph
     // each component is a shell
-    dynamic_bitset_mp<> visited_flags(2 * num_patch, false);
+    stl_vector_mp<bool> visited_flags(2 * num_patch, false);
     shells.clear();
     shell_of_half_patch.resize(2 * num_patch);
     for (uint32_t i = 0; i < 2 * num_patch; i++) {
@@ -225,9 +223,9 @@ void compute_shells_and_components(uint32_t                                     
     //    }
 }
 
-void compute_arrangement_cells(uint32_t                                            num_shell,
-                               const stl_vector_mp<std::pair<uint32_t, uint32_t>>& shell_links,
-                               stl_vector_mp<small_vector_mp<uint32_t>>&           arrangement_cells)
+ISNP_API void compute_arrangement_cells(uint32_t                                            num_shell,
+                                        const stl_vector_mp<std::pair<uint32_t, uint32_t>>& shell_links,
+                                        stl_vector_mp<stl_vector_mp<uint32_t>>&             arrangement_cells)
 {
     // build shell adjacency list
     uint32_t                                          sink_shell = num_shell;
@@ -247,7 +245,7 @@ void compute_arrangement_cells(uint32_t                                         
 
     // find connected components of shell adjacency graph
     // each component is an arrangement cells
-    small_dynamic_bitset_mp<> visited_shell(num_shell + 1, false);
+    stl_vector_mp<bool> visited_shell(num_shell + 1, false);
     //    arrangement_cells.clear();
     for (uint32_t i = 0; i < num_shell + 1; ++i) {
         if (!visited_shell[i]) {
@@ -272,33 +270,33 @@ void compute_arrangement_cells(uint32_t                                         
     }
 
     // remove sink shell from arrangement cells
-    small_vector_mp<uint32_t> sink_free_shell_list{};
+    stl_vector_mp<uint32_t> sink_free_shell_list{};
     for (auto& arr_cell : arrangement_cells) {
         sink_free_shell_list.clear();
         for (const auto s : arr_cell) {
             if (s < num_shell) { sink_free_shell_list.emplace_back(s); }
         }
-        arr_cell = sink_free_shell_list;
+        // arr_cell = sink_free_shell_list;
+        std::swap(arr_cell, sink_free_shell_list);
     }
 }
 
-stl_vector_mp<small_dynamic_bitset_mp<>> sign_propagation(const stl_vector_mp<small_vector_mp<uint32_t>>& arrangement_cells,
-                                                          const stl_vector_mp<uint32_t>&                  shell_of_half_patch,
-                                                          const stl_vector_mp<small_vector_mp<uint32_t>>& shells,
-                                                          const stl_vector_mp<uint32_t>&                  patch_function_label,
-                                                          uint32_t                                        n_func,
-                                                          const small_dynamic_bitset_mp<>&                sample_function_label)
+ISNP_API stl_vector_mp<stl_vector_mp<bool>> sign_propagation(const stl_vector_mp<stl_vector_mp<uint32_t>>& arrangement_cells,
+                                                             const stl_vector_mp<uint32_t>&                shell_of_half_patch,
+                                                             const stl_vector_mp<stl_vector_mp<uint32_t>>& shells,
+                                                             const stl_vector_mp<uint32_t>&                patch_function_label,
+                                                             uint32_t                                      n_func,
+                                                             const stl_vector_mp<bool>& sample_function_label)
 {
     stl_vector_mp<uint32_t> shell_to_cell(shells.size());
     for (uint32_t i = 0; i < arrangement_cells.size(); i++) {
         for (auto shell : arrangement_cells[i]) { shell_to_cell[shell] = i; }
     }
-    stl_vector_mp<small_dynamic_bitset_mp<>>              cell_function_label(arrangement_cells.size(),
-                                                                 small_dynamic_bitset_mp<>(n_func, false));
-    dynamic_bitset_mp<>                                   visited_cells(arrangement_cells.size(), false);
-    small_dynamic_bitset_mp<>                             visited_functions(n_func, false);
-    stl_vector_mp<small_vector_mp<uint32_t>>              inactive_func_stacks(n_func);
-    std::queue<uint32_t>                                  Q{};
+    stl_vector_mp<stl_vector_mp<bool>>       cell_function_label(arrangement_cells.size(), stl_vector_mp<bool>(n_func, false));
+    stl_vector_mp<bool>                      visited_cells(arrangement_cells.size(), false);
+    stl_vector_mp<bool>                      visited_functions(n_func, false);
+    stl_vector_mp<small_vector_mp<uint32_t>> inactive_func_stacks(n_func);
+    std::queue<uint32_t>                     Q{};
     flat_hash_map_mp<uint32_t, std::pair<uint32_t, bool>> cell_neighbors_map{};
 
     Q.emplace(0);

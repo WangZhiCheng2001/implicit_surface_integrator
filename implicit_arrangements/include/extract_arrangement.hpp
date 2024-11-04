@@ -1,10 +1,7 @@
 #pragma once
 
 // forward declaration
-struct Arrangement2D;
-struct Arrangement3D;
-template <size_t N>
-struct IAComplex;
+struct arrangement_t;
+struct ia_complex_t;
 
-Arrangement2D extract_arrangement(IAComplex<2>&& ia_complex);
-Arrangement3D extract_arrangement(IAComplex<3>&& ia_complex);
+arrangement_t extract_arrangement(ia_complex_t&& ia_complex);

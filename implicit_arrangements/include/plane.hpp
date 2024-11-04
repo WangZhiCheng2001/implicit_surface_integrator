@@ -1,65 +1,35 @@
 #pragma once
 
-#include <container/small_vector.hpp>
+#include <implicit_arrangement.hpp>
 
-// forward declaration
-struct Plane2D;
-struct Plane3D;
-
-namespace detail
-{
-template <size_t N>
-struct deduce_plane_type {
-};
-
-template <>
-struct deduce_plane_type<2> {
-    using type = Plane2D;
-};
-
-template <>
-struct deduce_plane_type<3> {
-    using type = Plane3D;
-};
-} // namespace detail
-
-template <size_t N>
-struct PlaneGroup {
-    using PlaneType = typename detail::deduce_plane_type<N>::type;
-
-    PlaneGroup() = default;
+struct plane_group_t {
+    plane_group_t() = default;
 
     template <typename InputIt>
-    PlaneGroup(InputIt first, InputIt last)
+    plane_group_t(InputIt first, InputIt last)
     {
-        if constexpr (N == 2) {
-            planes = small_vector_mp<PlaneType, N + 1>{
-                {1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1}
-            };
-        } else {
-            planes = small_vector_mp<PlaneType, N + 1>{
-                {1, 0, 0, 0},
-                {0, 1, 0, 0},
-                {0, 0, 1, 0},
-                {0, 0, 0, 1}
-            };
-        }
+        internal_planes = {
+            plane_t{1, 0, 0, 0},
+            plane_t{0, 1, 0, 0},
+            plane_t{0, 0, 1, 0},
+            plane_t{0, 0, 0, 1}
+        };
 
         planes.insert(planes.end(), std::make_move_iterator(first), std::make_move_iterator(last));
     }
 
     template <typename Container>
-    PlaneGroup(Container&& container)
-        : PlaneGroup(std::begin(std::forward<Container>(container)), std::end(std::forward<Container>(container)))
+    plane_group_t(Container&& container)
+        : plane_group_t(std::begin(std::forward<Container>(container)), std::end(std::forward<Container>(container)))
     {
     }
 
-    auto get_plane(uint32_t index) const noexcept { return planes[index]; }
+    auto get_plane(uint32_t index) const noexcept
+    {
+        if (index < 4) return internal_planes[index];
+        return planes[index - 4];
+    }
 
-    small_vector_mp<PlaneType, N + 1> planes{};
+    std::array<plane_t, 4> internal_planes{};
+    stl_vector_mp<plane_t> planes{};
 };
-
-using PlaneGroup2D = PlaneGroup<2>;
-using PlaneGroup3D = PlaneGroup<3>;

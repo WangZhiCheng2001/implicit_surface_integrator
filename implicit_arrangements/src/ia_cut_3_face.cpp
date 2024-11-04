@@ -2,12 +2,13 @@
 #include <algorithm/glue_algorithm.hpp>
 
 #include "ia_cut_face.hpp"
+#include "implicit_arrangement.hpp"
 #include "robust_assert.hpp"
 
-std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
-                                      uint32_t                       cid,
-                                      uint32_t                       plane_index,
-                                      const std::array<uint32_t, 3>* subfaces)
+std::array<uint32_t, 3> ia_cut_3_face(ia_complex_t&                                 ia_complex,
+                                      uint32_t                                      cid,
+                                      uint32_t                                      plane_index,
+                                      const stl_vector_mp<std::array<uint32_t, 3>>& subfaces)
 {
     auto& edges = ia_complex.edges;
     auto& faces = ia_complex.faces;
@@ -16,11 +17,11 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
     const auto& cell               = cells[cid];
     const auto  num_boundary_faces = cell.faces.size();
 
-    uint32_t                  cut_face_id = INVALID_INDEX;
-    small_vector_mp<uint32_t> positive_subfaces{};
-    small_vector_mp<uint32_t> negative_subfaces{};
-    small_vector_mp<uint32_t> cut_edges{};
-    small_dynamic_bitset_mp<> cut_edge_orientations{};
+    uint32_t                cut_face_id = INVALID_INDEX;
+    stl_vector_mp<uint32_t> positive_subfaces{};
+    stl_vector_mp<uint32_t> negative_subfaces{};
+    stl_vector_mp<uint32_t> cut_edges{};
+    stl_vector_mp<bool>     cut_edge_orientations{};
     positive_subfaces.reserve(num_boundary_faces + 1);
     negative_subfaces.reserve(num_boundary_faces + 1);
     cut_edges.reserve(num_boundary_faces);
@@ -62,7 +63,7 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
         if (subface[1] != INVALID_INDEX) { negative_subfaces.emplace_back(subface[1]); }
         if (subface[2] != INVALID_INDEX) {
             cut_edges.emplace_back(subface[2]);
-            cut_edge_orientations.push_back(compute_cut_edge_orientation(fid, subface));
+            cut_edge_orientations.emplace_back(compute_cut_edge_orientation(fid, subface));
         }
     }
 
@@ -84,11 +85,15 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
         flat_hash_map_mp<uint32_t, uint32_t> v2e{};
         v2e.reserve(num_cut_edges);
         for (size_t i = 0; i < num_cut_edges; i++) {
-            const auto  eid                                                   = cut_edges[i];
-            const auto& e                                                     = edges[eid];
-            v2e[e.vertices[static_cast<uint32_t>(!cut_edge_orientations[i])]] = i;
+            const auto  eid = cut_edges[i];
+            const auto& e   = edges[eid];
+            if (cut_edge_orientations[i]) {
+                v2e[e.vertices[0]] = i;
+            } else {
+                v2e[e.vertices[1]] = i;
+            }
         }
-        small_vector_mp<uint32_t> chained_cut_edges{};
+        stl_vector_mp<uint32_t> chained_cut_edges{};
         chained_cut_edges.reserve(num_cut_edges);
         chained_cut_edges.emplace_back(0u);
         while (chained_cut_edges.size() < num_cut_edges) {
@@ -110,14 +115,14 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
 
     // Cross cut.
     ROBUST_ASSERT(!cut_edges.empty());
-    IAFace<3> cut_face;
+    ia_face_t cut_face;
     cut_face.edges            = std::move(cut_edges);
     cut_face.supporting_plane = plane_index;
     faces.emplace_back(std::move(cut_face));
     cut_face_id = faces.size() - 1;
 
     // Generate positive and negative subcell.
-    IACell<3> positive_cell, negative_cell;
+    ia_cell_t positive_cell, negative_cell;
     positive_cell.faces.reserve(positive_subfaces.size() + 1);
     negative_cell.faces.reserve(negative_subfaces.size() + 1);
 
@@ -147,7 +152,7 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
         auto& positive_c = cells[positive_cell_id];
         auto& negative_c = cells[negative_cell_id];
 
-        for (auto fid : positive_cell.faces) {
+        for (auto fid : positive_c.faces) {
             if (fid == cut_face_id) continue;
             auto& f = faces[fid];
             ROBUST_ASSERT(f.positive_cell == cid || f.negative_cell == cid);
@@ -157,7 +162,7 @@ std::array<uint32_t, 3> ia_cut_3_face(IAComplex<3>&                  ia_complex,
                 f.negative_cell = positive_cell_id;
             }
         }
-        for (auto fid : negative_cell.faces) {
+        for (auto fid : negative_c.faces) {
             if (fid == cut_face_id) continue;
             auto& f = faces[fid];
             ROBUST_ASSERT(f.positive_cell == cid || f.negative_cell == cid);

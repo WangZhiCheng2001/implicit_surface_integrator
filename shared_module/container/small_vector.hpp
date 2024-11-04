@@ -18,7 +18,7 @@ template <typename T, std::size_t N = 16>
 using small_vector = detail::small_vector_base<detail::stl_vector_bind<>::template type, T, N>;
 
 template <typename T, std::size_t N = 16>
-using small_vector_mp = detail::small_vector_base<detail::stl_vector_bind<ScalableMemoryPoolAllocator>::template type, T, N>;
+using small_vector_mp = detail::small_vector_base<detail::stl_vector_bind<tbb::tbb_allocator>::template type, T, N>;
 
 namespace detail
 {

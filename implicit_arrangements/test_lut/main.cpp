@@ -1,4 +1,4 @@
-#include <implicit_arrangement.h>
+#include <implicit_arrangement.hpp>
 
 int main()
 {

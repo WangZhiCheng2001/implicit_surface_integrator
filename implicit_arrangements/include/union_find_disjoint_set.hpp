@@ -1,6 +1,6 @@
 #pragma once
 
-#include <container/small_vector.hpp>
+#include <implicit_arrangement.hpp>
 
 struct UnionFindDisjointSet {
     UnionFindDisjointSet() noexcept = default;
@@ -11,10 +11,8 @@ struct UnionFindDisjointSet {
     int32_t find(uint32_t x) noexcept;
     int32_t merge(uint32_t x, uint32_t y) noexcept;
 
-    void extract_disjoint_sets(uint32_t** disjoint_sets,
-                               uint32_t*  index_map,
-                               uint32_t*  disjoint_set_elem_count,
-                               uint32_t&  num_disjoint_set) noexcept;
+    void extract_disjoint_sets(stl_vector_mp<stl_vector_mp<uint32_t>>& disjoint_sets,
+                               stl_vector_mp<uint32_t>&                index_map) noexcept;
 
-    small_vector_mp<int32_t> parent{};
+    stl_vector_mp<int32_t> parent{};
 };

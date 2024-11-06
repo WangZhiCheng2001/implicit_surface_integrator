@@ -9,7 +9,7 @@
         "--j=8",
         "--background-index",
         "--compile-commands-dir=.vscode",
-        "--query-driver=G:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang*",
+        "--query-driver=E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang*",
         "--enable-config",
         "--function-arg-placeholders=true",
         "--header-insertion-decorators",
@@ -18,5 +18,5 @@
         "--pretty",
         "--ranking-model=decision_forest"
     ],
-    "clangd.path": "G:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clangd.exe"
+    "clangd.path": "E:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clangd.exe"
 }

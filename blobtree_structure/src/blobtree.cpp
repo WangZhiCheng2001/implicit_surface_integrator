@@ -1,462 +1,161 @@
-#include "blobtree.h"
-#include <cstdlib>
+#include <stack>
 
-constexpr auto tree_vector_length = 65535;
+#include "internal_api.hpp"
+#include "primitive_descriptor.h"
 
-void create_new_sub_blobtree(blobtree_t* blobtree)
-{
-    blobtree->structure_size += 1;
-    blobtree->structure       = static_cast<node_t**>(realloc(blobtree->structure, blobtree->structure_size * sizeof(node_t*)));
-    if (blobtree->structure == nullptr) { throw std::runtime_error("Memory allocation failed."); }
+static constexpr auto tree_vector_length = 65535;
 
-    blobtree->structure[blobtree->structure_size - 1] = static_cast<node_t*>(malloc(tree_vector_length * sizeof(node_t)));
-    if (blobtree->structure[blobtree->structure_size - 1] == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-    memset(blobtree->structure[blobtree->structure_size - 1], 0.0, tree_vector_length * sizeof(node_t));
-}
+/* internal global variables for blobtree */
+struct blobtree_t {
+    std::vector<node_t, tbb::tbb_allocator<node_t>> nodes{};
+};
 
-void free_sub_blobtree(blobtree_t* blobtree, const int index)
-{
-    free(blobtree->structure[index]);
-    blobtree->structure[index] = nullptr;
-}
+std::vector<blobtree_t, tbb::tbb_allocator<blobtree_t>>                  structures{};
+std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>      primitives{};
+std::stack<uint32_t, std::deque<uint32_t, tbb::tbb_allocator<uint32_t>>> free_structure_list{};
 
-int get_next_available_index(blobtree_t* blobtree)
-{
-    for (int i = 0; i < blobtree->structure_size; i++) {
-        if (blobtree->structure[i] == nullptr) {
-            blobtree->structure[i] = static_cast<node_t*>(malloc(tree_vector_length * sizeof(node_t)));
-            if (blobtree->structure[i] == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-            memset(blobtree->structure[i], 0.0, tree_vector_length * sizeof(node_t));
-            return i;
-        }
+/* getter/setter for node_t */
+template <typename _Tp>
+struct node_proxy {
+    constexpr node_proxy(node_t& _data, uint32_t _offset, uint32_t _mask) : data(&_data), offset(_offset), mask(_mask) {}
+
+    node_proxy(const node_proxy&) = delete;
+    node_proxy(node_proxy&&)      = delete;
+
+    constexpr node_proxy& operator=(const node_proxy& other)
+    {
+        const auto _mask = mask << offset;
+        *data            = (*data & ~_mask) | (other.data & _mask);
+        return *this;
     }
 
-    create_new_sub_blobtree(blobtree);
-    return blobtree->structure_size - 1;
-}
-
-blobtree_t* create_blobtree()
-{
-    blobtree_t* blobtree = static_cast<blobtree_t*>(malloc(sizeof(blobtree_t)));
-    if (blobtree == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-
-    blobtree->structure = static_cast<node_t**>(malloc(sizeof(node_t*)));
-    if (blobtree->structure == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-    blobtree->structure_size = 0;
-
-    blobtree->primitive = static_cast<primitive_node_t*>(malloc(sizeof(primitive_node_t)));
-    if (blobtree->primitive == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-    blobtree->primitive_size = 0;
-
-    return blobtree;
-}
-
-void free_blobtree(blobtree_t* blobtree)
-{
-    for (int i = 0; i < blobtree->structure_size; i++) { free(blobtree->structure[i]); }
-    free(blobtree->structure);
-    free(blobtree->primitive);
-    free(blobtree);
-}
-
-virtual_node_t push_primitive_node(blobtree_t* blobtree, const primitive_node_t& primitive_node)
-{
-    blobtree->primitive_size += 1;
-    blobtree->primitive =
-        static_cast<primitive_node_t*>(realloc(blobtree->primitive, (blobtree->primitive_size) * sizeof(primitive_node_t)));
-    if (blobtree->primitive == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-    blobtree->primitive[blobtree->primitive_size - 1] = primitive_node;
-
-    node_t new_node;
-    new_node.non_null   = 1;
-    new_node.primitive  = 1;
-    new_node.operate    = 3;
-    new_node.cross      = 0;
-    new_node.index      = blobtree->primitive_size - 1;
-    new_node.main_index = 0;
-
-    blobtree->structure[0] = static_cast<node_t*>(realloc(blobtree->structure[0], (blobtree->primitive_size) * sizeof(node_t)));
-    if (blobtree->primitive == nullptr) { throw std::runtime_error("Memory allocation failed."); }
-    blobtree->structure[0][blobtree->primitive_size - 1] = new_node;
-
-    virtual_node_t virtual_node;
-    virtual_node.main_index  = 0;
-    virtual_node.inner_index = blobtree->primitive_size - 1;
-    return virtual_node;
-}
-
-virtual_node_t blobtree_new_virtual_node_constant(const constant_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = constant;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_plane(const plane_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = plane;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_sphere(const sphere_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = sphere;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_cylinder(const cylinder_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = cylinder;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_cone(const cone_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = cone;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_box(const box_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = box;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_mesh(const mesh_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = mesh;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-virtual_node_t blobtree_new_virtual_node_extrude(const extrude_descriptor_t* desc, blobtree_t* blobtree)
-{
-    primitive_node_t primitive_node;
-    primitive_node.desc = (void*)desc;
-    primitive_node.type = extrude;
-    return push_primitive_node(blobtree, primitive_node);
-}
-
-void blobtree_free_virtual_node(virtual_node_t* node) { ; }
-
-virtual_node_t get_left_child_index(virtual_node_t node, blobtree_t* blobtree)
-{
-    int  left_child_index = 2 * node.inner_index + 1;
-    auto temp             = blobtree->structure[node.main_index][left_child_index];
-    if (temp.cross == 2) {
-        return virtual_node_t{temp.main_index, temp.index};
-    } else if (left_child_index >= tree_vector_length) {
-        auto main_index = get_next_available_index(blobtree);
-        return virtual_node_t{(unsigned int)main_index, 0};
-    } else {
-        return virtual_node_t{node.main_index, (unsigned int)left_child_index};
-    }
-}
-
-virtual_node_t get_right_child_index(virtual_node_t node, blobtree_t* blobtree)
-{
-    int  right_child_index = 2 * node.inner_index + 2;
-    auto temp              = blobtree->structure[node.main_index][right_child_index];
-    if (temp.cross == 3) {
-        return virtual_node_t{temp.main_index, temp.index};
-    } else if (right_child_index >= tree_vector_length) {
-        auto main_index = get_next_available_index(blobtree);
-        return virtual_node_t{(unsigned int)main_index, 0};
-    } else {
-        return virtual_node_t{node.main_index, (unsigned int)right_child_index};
-    }
-}
-
-virtual_node_t get_parent_index(virtual_node_t node, blobtree_t* blobtree)
-{
-    int  parent_child_index = (node.inner_index - 1) / 2;
-    auto temp               = blobtree->structure[node.main_index][parent_child_index];
-    if (temp.cross == 1) {
-        return virtual_node_t{temp.main_index, temp.index};
-    } else {
-        return virtual_node_t{node.main_index, (unsigned int)parent_child_index};
-    }
-}
-
-bool is_primitive_node(node_t node) { return node.primitive == 1; }
-
-bool is_null_node(node_t node) { return node.non_null == 0; }
-
-bool is_left_node(const int index) { return index % 2 == 1; }
-
-bool is_right_node(const int index) { return index % 2 == 0; }
-
-bool is_root_node(const int index) { return index == 0; }
-
-bool update_inner(virtual_node_t old_node, virtual_node_t new_node, blobtree_t* blobtree)
-{
-    if (is_null_node(blobtree->structure[old_node.main_index][old_node.inner_index])) { return true; }
-
-    if (new_node.inner_index >= tree_vector_length) { return false; }
-
-    if (!is_null_node(blobtree->structure[new_node.main_index][new_node.inner_index])) { return false; }
-
-    if (is_primitive_node(blobtree->structure[new_node.main_index][new_node.inner_index])) {
-        blobtree->structure[new_node.main_index][new_node.inner_index] =
-            blobtree->structure[old_node.main_index][old_node.inner_index];
-        blobtree->structure[old_node.main_index][old_node.inner_index].non_null = 0;
-        return true;
-    } else {
-        if (!update_inner(get_left_child_index(old_node, blobtree), get_left_child_index(new_node, blobtree), blobtree)) {
-            return false;
-        }
-        if (!update_inner(get_right_child_index(old_node, blobtree), get_right_child_index(new_node, blobtree), blobtree)) {
-            return false;
-        }
-
-        blobtree->structure[new_node.main_index][new_node.inner_index] =
-            blobtree->structure[old_node.main_index][old_node.inner_index];
-        blobtree->structure[old_node.main_index][old_node.inner_index].non_null = 0;
-        return true;
-    }
-}
-
-void copy_sub_blobtree(const int dst_main_index, const int src_main_index, blobtree_t* blobtree)
-{
-    memcpy(blobtree->structure[dst_main_index], blobtree->structure[src_main_index], tree_vector_length * sizeof(node_t));
-}
-
-bool update(virtual_node_t old_node, virtual_node_t new_node, blobtree_t* blobtree)
-{
-    // Virtual update, check for out-of-bounds
-    auto temp_mian_index = get_next_available_index(blobtree);
-    copy_sub_blobtree(temp_mian_index, new_node.main_index, blobtree);
-
-    if (update_inner(old_node, virtual_node_t{(unsigned)temp_mian_index, new_node.inner_index}, blobtree)) {
-        copy_sub_blobtree(new_node.main_index, temp_mian_index, blobtree);
-        free_sub_blobtree(blobtree, temp_mian_index);
-        return true;
-    } else {
-        free_sub_blobtree(blobtree, temp_mian_index);
-        return false;
-    }
-}
-
-bool virtual_node_boolean_union(virtual_node_t* node1, virtual_node_t* node2, blobtree_t* blobtree) { return false; }
-
-bool virtual_node_boolean_union_save_mode(virtual_node_t* node1, virtual_node_t* node2, blobtree_t* blobtree) { return false; }
-
-bool check(virtual_node_t node, blobtree_t* blobtree)
-{
-    if (is_null_node(blobtree->structure[node.main_index][node.inner_index])) { return false; }
-
-    if (is_primitive_node(blobtree->structure[node.main_index][node.inner_index])) { return true; }
-
-    if (!check(get_left_child_index(node, blobtree), blobtree)) { return false; }
-    if (!check(get_right_child_index(node, blobtree), blobtree)) { return false; }
-    return true;
-}
-
-bool virtual_node_set_parent(virtual_node_t* node, virtual_node_t* parent, blobtree_t* blobtree)
-{
-    if (node->main_index == 0) { return false; }
-
-    auto parent_index = get_parent_index(*node, blobtree);
-    if (!is_root_node(parent_index.inner_index)
-        && !is_null_node(blobtree->structure[parent_index.main_index][parent_index.inner_index])) {
-        return false;
+    constexpr node_proxy& operator=(node_proxy&& other)
+    {
+        const auto _mask = mask << offset;
+        *data            = (*data & ~_mask) | (std::forward(other.data) & _mask);
+        return *this;
     }
 
-    auto left_child_index  = get_left_child_index(*parent, blobtree);
-    auto right_child_index = get_right_child_index(*parent, blobtree);
-    if (is_left_node(node->inner_index)
-        && is_null_node(blobtree->structure[left_child_index.main_index][left_child_index.inner_index])) {
-        if (is_root_node(node->inner_index)) {
-            if (!update(*node, get_left_child_index(*node, blobtree), blobtree)) { return false; }
-        }
-        if (!update(*parent, get_parent_index(*node, blobtree), blobtree)) { return false; }
-        return true;
-    } else if (is_right_node(node->inner_index)
-               && is_null_node(blobtree->structure[right_child_index.main_index][right_child_index.inner_index])) {
-        if (is_root_node(node->inner_index)) {
-            if (!update(*node, get_right_child_index(*node, blobtree), blobtree)) { return false; }
-        }
-        if (!update(*parent, get_parent_index(*node, blobtree), blobtree)) { return false; }
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool virtual_node_set_left_child(virtual_node_t* node, virtual_node_t* child, blobtree_t* blobtree)
-{
-    int parent_index     = get_parent_index(*child, blobtree).inner_index;
-    int left_child_index = get_left_child_index(*node, blobtree).inner_index;
-
-    if (!is_root_node(child->inner_index) && !is_null_node(blobtree->structure[child->main_index][parent_index])) {
-        return false;
-    }
-    if (!is_null_node(blobtree->structure[node->main_index][left_child_index])) { return false; }
-
-    if (update(*child, virtual_node_t{node->main_index, (unsigned int)left_child_index}, blobtree)) {
-        *child = *node;
-        return true;
-    } else {
-        blobtree->structure[node->main_index][left_child_index].non_null   = 1;
-        blobtree->structure[node->main_index][left_child_index].cross      = 2;
-        blobtree->structure[node->main_index][left_child_index].main_index = child->main_index;
-        blobtree->structure[node->main_index][left_child_index].index      = child->inner_index;
-
-        blobtree->structure[child->main_index][parent_index].non_null   = 1;
-        blobtree->structure[child->main_index][parent_index].cross      = 1;
-        blobtree->structure[child->main_index][parent_index].main_index = node->main_index;
-        blobtree->structure[child->main_index][parent_index].index      = node->inner_index;
-        return true;
-    }
-}
-
-bool virtual_node_set_right_child(virtual_node_t* node, virtual_node_t* child, blobtree_t* blobtree)
-{
-    int parent_index      = get_parent_index(*child, blobtree).inner_index;
-    int right_child_index = get_right_child_index(*node, blobtree).inner_index;
-
-    if (!is_root_node(child->inner_index) && !is_null_node(blobtree->structure[child->main_index][parent_index])) {
-        return false;
-    }
-    if (!is_null_node(blobtree->structure[node->main_index][right_child_index])) { return false; }
-
-    if (update(*child, virtual_node_t{node->main_index, (unsigned int)right_child_index}, blobtree)) {
-        *child = *node;
-        return true;
-    } else {
-        blobtree->structure[node->main_index][right_child_index].non_null   = 1;
-        blobtree->structure[node->main_index][right_child_index].cross      = 3;
-        blobtree->structure[node->main_index][right_child_index].main_index = child->main_index;
-        blobtree->structure[node->main_index][right_child_index].index      = child->inner_index;
-
-        blobtree->structure[child->main_index][parent_index].non_null   = 1;
-        blobtree->structure[child->main_index][parent_index].cross      = 1;
-        blobtree->structure[child->main_index][parent_index].main_index = node->main_index;
-        blobtree->structure[child->main_index][parent_index].index      = node->inner_index;
-        return true;
-    }
-}
-
-bool virtual_node_add_child(virtual_node_t* node, virtual_node_t* child, blobtree_t* blobtree)
-{
-    auto parent_index = get_parent_index(*child, blobtree).inner_index;
-    if (!is_root_node(child->inner_index) && !is_null_node(blobtree->structure[child->main_index][parent_index])) {
-        return false;
+    template <typename _Fp>
+    constexpr node_proxy& operator=(_Fp&& other)
+    {
+        const auto _mask = mask << offset;
+        *data            = (*data & ~_mask) | (std::forward<_Fp>(other) & _mask);
+        return *this;
     }
 
-    if (is_null_node(blobtree->structure[node->main_index][get_left_child_index(*node, blobtree).inner_index])) {
-        virtual_node_set_left_child(node, child, blobtree);
-        return true;
-    } else if (is_null_node(blobtree->structure[node->main_index][get_right_child_index(*node, blobtree).inner_index])) {
-        virtual_node_set_right_child(node, child, blobtree);
-        return true;
-    } else {
-        return false;
-    }
+    constexpr operator _Tp() const { return static_cast<_Tp>(((*data) >> offset) & mask); }
+
+protected:
+    node_t*  data;
+    uint32_t offset{};
+    uint32_t mask{};
+};
+
+// 0 for null pointer, 1 for non-null nodes
+static constexpr inline auto node_fetch_is_non_null(node_t& node) { return node_proxy<bool>(node, 31u, 0x01u); }
+
+// 0 for internal node, 1 for primitive node
+static constexpr inline auto node_fetch_is_primitive(node_t& node) { return node_proxy<bool>(node, 30u, 0x01u); }
+
+// 0 for union, 1 for intersection, 2 for difference, 3 for unset
+static constexpr inline auto node_fetch_operation(node_t& node) { return node_proxy<uint32_t>(node, 28u, 0x03u); }
+
+// 0 for no cross, 1 for cross to parent, 2 for cross left child, 3 for cross right child
+static constexpr inline auto node_fetch_fetch_cross(node_t& node) { return node_proxy<bool>(node, 26u, 0x03u); }
+
+// If primitive node, the index to the primitive information, if cross node, the index to the cross node
+static constexpr inline auto node_fetch_primitive_index(node_t& node) { return node_proxy<bool>(node, 10u, 0xFFFFu); }
+
+// use in cross node
+static constexpr inline auto node_fetch_main_index(node_t& node) { return node_proxy<bool>(node, 2u, 0xFFu); }
+
+/* basic functionalities */
+// primitives
+BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() { return primitives; }
+
+void shrink_primitives() { primitives.shrink_to_fit(); }
+
+// sub tree
+uint32_t create_new_sub_blobtree()
+{
+    auto& tree = structures.emplace_back();
+    tree.nodes.reserve(tree_vector_length);
+    primitives.reserve(primitives.capacity() + ((tree_vector_length + 1) >> 1));
+    return static_cast<uint32_t>(structures.size() - 1);
 }
 
-void remove(virtual_node_t node, blobtree_t* blobtree)
+void free_sub_blobtree(uint32_t index)
 {
-    if (is_null_node(blobtree->structure[node.main_index][node.inner_index])) { return; }
-
-    blobtree->structure[node.main_index][node.inner_index].non_null = 0;
-
-    if (is_primitive_node(blobtree->structure[node.main_index][node.inner_index])) { return; }
-
-    remove(get_left_child_index(node, blobtree), blobtree);
-    remove(get_right_child_index(node, blobtree), blobtree);
+    // 这里尽量打标记，延迟修改和删除
+    free_structure_list.push(index);
 }
 
-bool operator==(const virtual_node_t& node1, const virtual_node_t& node2)
+// node insertion
+static constexpr auto standard_new_node = 0xF0000000u; // i.e. non_null, primitive, but invalid operation
+                                                       // others are all zero-valued
+
+virtual_node_t push_primitive_node(primitive_node_t&& primitive_node)
 {
-    return node1.main_index == node2.main_index && node1.inner_index == node2.inner_index;
+    primitives.emplace_back(primitive_node);
+    auto& node                       = structures[0].nodes.emplace_back(standard_new_node);
+    node_fetch_primitive_index(node) = static_cast<uint32_t>(primitives.size() - 1);
+
+    return {0, static_cast<uint32_t>(primitives.size() - 1)};
 }
 
-bool virtual_node_remove_child(virtual_node_t* node, virtual_node_t* child, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const constant_descriptor_t& desc)
 {
-    if (get_left_child_index(*node, blobtree) == *child) {
-        remove(*child, blobtree);
-        return true;
-    } else if (get_right_child_index(*node, blobtree) == *child) {
-        remove(*child, blobtree);
-        return true;
-    } else {
-        return false;
-    }
+    primitive_node_t node{PRIMITIVE_TYPE_CONSTANT, malloc(sizeof(constant_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_constant(virtual_node_t* node, const constant_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const plane_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = constant;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_PLANE, malloc(sizeof(plane_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_plane(virtual_node_t* node, const plane_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const sphere_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = plane;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_SPHERE, malloc(sizeof(sphere_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_sphere(virtual_node_t* node, const sphere_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const cylinder_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = sphere;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_CYLINDER, malloc(sizeof(cylinder_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_cylinder(virtual_node_t* node, const cylinder_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const cone_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = cylinder;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_CONE, malloc(sizeof(cone_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_cone(virtual_node_t* node, const cone_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const box_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = cone;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_BOX, malloc(sizeof(box_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_box(virtual_node_t* node, const box_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const mesh_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = box;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_MESH, malloc(sizeof(mesh_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }
 
-bool virtual_node_replace_primitive_mesh(virtual_node_t* node, const mesh_descriptor_t* desc, blobtree_t* blobtree)
+BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t& desc)
 {
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = mesh;
-    return true;
-}
-
-bool virtual_node_replace_primitive_extrude(virtual_node_t* node, const extrude_descriptor_t* desc, blobtree_t* blobtree)
-{
-    if (!is_primitive_node(blobtree->structure[node->main_index][node->inner_index])) { return false; }
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].desc = (void*)desc;
-    blobtree->primitive[blobtree->structure[node->main_index][node->inner_index].index].type = extrude;
-    return true;
+    primitive_node_t node{PRIMITIVE_TYPE_EXTRUDE, malloc(sizeof(extrude_descriptor_t))};
+    std::move(&desc, &desc + 1, node.desc);
+    return push_primitive_node(std::move(node));
 }

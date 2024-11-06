@@ -70,7 +70,7 @@ public:
 
     Scalar evaluate_scalar(const Eigen::Ref<const Eigen::Vector<Scalar, Dim>> &pos) const
     {
-        return -((pos - center_).norm() - radius_);
+        return (pos - center_).norm() - radius_;
     }
 
     Eigen::Vector<Scalar, Dim> evaluate_gradient(const Eigen::Ref<const Eigen::Vector<Scalar, Dim>> &pos) const

@@ -1,4 +1,4 @@
-#include <internal_api.hpp>
+#include "internal_api.hpp"
 
 inline auto vec3d_conversion(const raw_vector3d_t& p) { return Eigen::Map<const Eigen::Vector3d>(&p.x); }
 
@@ -210,5 +210,46 @@ BPE_API double evaluate(const extrude_descriptor_t& desc, const Eigen::Ref<const
         return -min_distance;
     } else {
         return min_distance;
+    }
+}
+
+BPE_API double evaluate(const primitive_node_t& node, const raw_vector3d_t& point)
+{
+    auto type = node.type;
+    switch (type) {
+        case PRIMITIVE_TYPE_CONSTANT: {
+            break;
+        }
+        case PRIMITIVE_TYPE_PLANE: {
+            auto desc = static_cast<plane_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_SPHERE: {
+            auto desc = static_cast<sphere_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_CYLINDER: {
+            auto desc = static_cast<cylinder_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_CONE: {
+            auto desc = static_cast<cone_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_BOX: {
+            auto desc = static_cast<box_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_MESH: {
+            auto desc = static_cast<mesh_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        case PRIMITIVE_TYPE_EXTRUDE: {
+            auto desc = static_cast<extrude_descriptor_t*>(node.desc);
+            return evaluate(*desc, vec3d_conversion(point));
+        }
+        default: {
+            return 0.0;
+        }
     }
 }

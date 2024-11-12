@@ -105,12 +105,93 @@ typedef struct _node_t {
 
 } node_t;
 
+const raw_vector3d_t operator+(const raw_vector3d_t& point1, const raw_vector3d_t& point2)
+{
+    raw_vector3d_t result;
+    result.x = point1.x + point2.x;
+    result.y = point1.y + point2.y;
+    result.z = point1.z + point2.z;
+    return result;
+}
+
+const raw_vector3d_t operator-(const raw_vector3d_t& point1, const raw_vector3d_t& point2)
+{
+    raw_vector3d_t result;
+    result.x = point1.x - point2.x;
+    result.y = point1.y - point2.y;
+    result.z = point1.z - point2.z;
+    return result;
+}
+
+const raw_vector3d_t operator+(const raw_vector3d_t& point, const double value)
+{
+    raw_vector3d_t result;
+    result.x = point.x + value;
+    result.y = point.y + value;
+    result.z = point.z + value;
+    return result;
+}
+
+const raw_vector3d_t operator-(const raw_vector3d_t& point, const double value)
+{
+    raw_vector3d_t result;
+    result.x = point.x - value;
+    result.y = point.y - value;
+    result.z = point.z - value;
+    return result;
+}
+
+typedef struct _aabb_t {
+    raw_vector3d_t min;
+    raw_vector3d_t max;
+
+    _aabb_t()
+    {
+        min.x = std::numeric_limits<double>::max();
+        min.y = std::numeric_limits<double>::max();
+        min.z = std::numeric_limits<double>::max();
+        max.x = std::numeric_limits<double>::min();
+        max.y = std::numeric_limits<double>::min();
+        max.z = std::numeric_limits<double>::min();
+    }
+
+    _aabb_t(const raw_vector3d_t& min, const raw_vector3d_t& max) : min(min), max(max) {}
+
+    void extend(const raw_vector3d_t& point)
+    {
+        min.x = std::min(min.x, point.x);
+        min.y = std::min(min.y, point.y);
+        min.z = std::min(min.z, point.z);
+        max.x = std::max(max.x, point.x);
+        max.y = std::max(max.y, point.y);
+        max.z = std::max(max.z, point.z);
+    }
+
+    void extend(const _aabb_t& aabb)
+    {
+        min.x = std::min(min.x, aabb.min.x);
+        min.y = std::min(min.y, aabb.min.y);
+        min.z = std::min(min.z, aabb.min.z);
+        max.x = std::max(max.x, aabb.max.x);
+        max.y = std::max(max.y, aabb.max.y);
+        max.z = std::max(max.z, aabb.max.z);
+    }
+
+    void offset(const raw_vector3d_t& offset)
+    {
+        min = min + offset;
+        max = max + offset;
+    }
+
+} aabb_t;
+
 typedef struct blobtree_t {
     std::vector<node_t, tbb::tbb_allocator<node_t>>     nodes{};
     std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> leaf_index{};
 };
 
 std::vector<blobtree_t, tbb::tbb_allocator<blobtree_t>>                  structures{};
+std::vector<aabb_t, tbb::tbb_allocator<aabb_t>>                          aabbs{};
 std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>      primitives{};
 std::stack<uint32_t, std::deque<uint32_t, tbb::tbb_allocator<uint32_t>>> free_structure_list{};
 
@@ -282,7 +363,7 @@ virtual_node_t copy(virtual_node_t old_node, virtual_node_t new_node)
     return virtual_node_t{new_node.main_index, old_node.inner_index + size};
 }
 
-void offset_primitive(primitive_node_t node, const raw_vector3d_t& offset)
+void offset_primitive(primitive_node_t& node, const raw_vector3d_t& offset)
 {
     auto offset_point = [](raw_vector3d_t* point, const raw_vector3d_t& offset) {
         point->x += offset.x;
@@ -421,12 +502,24 @@ int evaluate(const virtual_node_t& node, const raw_vector3d_t& point)
     return node_fetch_in_out(temp.nodes[node.inner_index]);
 }
 
+aabb_t get_aabb(const virtual_node_t& node)
+{
+    auto&  leaf_index = structures[node.main_index].leaf_index;
+    aabb_t result{};
+    for (auto& index : leaf_index) {
+        auto& type = primitives[index].type;
+        if (type != PRIMITIVE_TYPE_CONSTANT && type != PRIMITIVE_TYPE_PLANE) { result.extend(aabbs[index]); }
+    }
+    return result;
+}
+
 /* Geometry Generation */
 
 static constexpr node_t standard_new_node = {(uint64_t)0xFFFFFFFFFFFFFFFFu, (uint64_t)0xFFFFFFFFFFFFFFFFu};
 
-virtual_node_t push_primitive_node(primitive_node_t&& primitive_node)
+virtual_node_t push_primitive_node(primitive_node_t&& primitive_node, const aabb_t&& aabb)
 {
+    aabbs.emplace_back(aabb);
     primitives.emplace_back(primitive_node);
 
     node_t node = standard_new_node;
@@ -445,56 +538,93 @@ BPE_API virtual_node_t blobtree_new_virtual_node(const constant_descriptor_t& de
 {
     primitive_node_t node{PRIMITIVE_TYPE_CONSTANT, malloc(sizeof(constant_descriptor_t))};
     *((constant_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+    aabb_t aabb{};
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const plane_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_PLANE, malloc(sizeof(plane_descriptor_t))};
     *((plane_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    aabb_t aabb{};
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const sphere_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_SPHERE, malloc(sizeof(sphere_descriptor_t))};
     *((sphere_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    raw_vector3d_t min = desc.center - desc.radius;
+    raw_vector3d_t max = desc.center + desc.radius;
+    aabb_t         aabb{min, max};
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const cylinder_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_CYLINDER, malloc(sizeof(cylinder_descriptor_t))};
     *((cylinder_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    // NOTE: A rough AABB bounding box
+    aabb_t aabb{};
+    aabb.extend(desc.bottom_origion + desc.radius);
+    aabb.extend(desc.bottom_origion - desc.radius);
+    aabb.extend(desc.bottom_origion + desc.offset + desc.radius);
+    aabb.extend(desc.bottom_origion + desc.offset - desc.radius);
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const cone_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_CONE, malloc(sizeof(cone_descriptor_t))};
     *((cone_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    // NOTE: A rough AABB bounding box
+    aabb_t aabb{};
+    aabb.extend(desc.top_point + desc.radius1);
+    aabb.extend(desc.top_point - desc.radius1);
+    aabb.extend(desc.bottom_point + desc.radius2);
+    aabb.extend(desc.bottom_point - desc.radius2);
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const box_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_BOX, malloc(sizeof(box_descriptor_t))};
     *((box_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    raw_vector3d_t min = desc.center - desc.half_size;
+    raw_vector3d_t max = desc.center + desc.half_size;
+    aabb_t         aabb{min, max};
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const mesh_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_MESH, malloc(sizeof(mesh_descriptor_t))};
     *((mesh_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    aabb_t aabb{};
+    for (int i = 0; i < desc.point_number; i++) { aabb.extend(desc.points[i]); }
+
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t& desc)
 {
     primitive_node_t node{PRIMITIVE_TYPE_EXTRUDE, malloc(sizeof(extrude_descriptor_t))};
     *((extrude_descriptor_t*)node.desc) = std::move(desc);
-    return push_primitive_node(std::move(node));
+
+    aabb_t aabb{};
+    // NOTE: Currently only straight edges are considered
+    for (int i = 0; i < desc.edges_number; i++) {
+        aabb.extend(desc.points[i]);
+        aabb.extend(desc.points[i] + desc.extusion);
+    }
+
+    return push_primitive_node(std::move(node), std::move(aabb));
 }
 
 BPE_API void blobtree_free_virtual_node(virtual_node_t* node) { free_sub_blobtree(node->main_index); }
@@ -569,6 +699,8 @@ BPE_API void virtual_node_offset(virtual_node_t* node, const raw_vector3d_t& off
     auto& all_leaf = structures[node->main_index].leaf_index;
     for (int i = 0; i < all_leaf.size(); i++) {
         offset_primitive(primitives[node_fetch_primitive_index(structures[node->main_index].nodes[all_leaf[i]])], offset);
+
+        aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[all_leaf[i]])].offset(offset);
     }
 }
 
@@ -692,6 +824,7 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const constant
           .desc) = std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type =
         PRIMITIVE_TYPE_CONSTANT;
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb_t{};
     return true;
 }
 
@@ -701,6 +834,7 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const plane_de
     *((plane_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].desc) =
         std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_PLANE;
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])]           = aabb_t{};
     return true;
 }
 
@@ -710,6 +844,12 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const sphere_d
     *((sphere_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])]
           .desc)                                                                                       = std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_SPHERE;
+
+    raw_vector3d_t min = desc.center - desc.radius;
+    raw_vector3d_t max = desc.center + desc.radius;
+    aabb_t         aabb{min, max};
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
+
     return true;
 }
 
@@ -720,6 +860,15 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cylinder
           .desc) = std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type =
         PRIMITIVE_TYPE_CYLINDER;
+
+    // NOTE: A rough AABB bounding box
+    aabb_t aabb{};
+    aabb.extend(desc.bottom_origion + desc.radius);
+    aabb.extend(desc.bottom_origion - desc.radius);
+    aabb.extend(desc.bottom_origion + desc.offset + desc.radius);
+    aabb.extend(desc.bottom_origion + desc.offset - desc.radius);
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
+
     return true;
 }
 
@@ -729,6 +878,14 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cone_des
     *((cone_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].desc) =
         std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_CONE;
+
+    // NOTE: A rough AABB bounding box
+    aabb_t aabb{};
+    aabb.extend(desc.top_point + desc.radius1);
+    aabb.extend(desc.top_point - desc.radius1);
+    aabb.extend(desc.bottom_point + desc.radius2);
+    aabb.extend(desc.bottom_point - desc.radius2);
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
     return true;
 }
 
@@ -738,6 +895,11 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const box_desc
     *((box_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].desc) =
         std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_BOX;
+
+    raw_vector3d_t min = desc.center - desc.half_size;
+    raw_vector3d_t max = desc.center + desc.half_size;
+    aabb_t         aabb{min, max};
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
     return true;
 }
 
@@ -747,6 +909,11 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const mesh_des
     *((mesh_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].desc) =
         std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_MESH;
+
+    aabb_t aabb{};
+    for (int i = 0; i < desc.point_number; i++) { aabb.extend(desc.points[i]); }
+
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
     return true;
 }
 
@@ -756,6 +923,14 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const extrude_
     *((extrude_descriptor_t*)primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])]
           .desc)                                                                                       = std::move(desc);
     primitives[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])].type = PRIMITIVE_TYPE_EXTRUDE;
+
+    aabb_t aabb{};
+    // NOTE: Currently only straight edges are considered
+    for (int i = 0; i < desc.edges_number; i++) {
+        aabb.extend(desc.points[i]);
+        aabb.extend(desc.points[i] + desc.extusion);
+    }
+    aabbs[node_fetch_primitive_index(structures[node->main_index].nodes[node->inner_index])] = aabb;
     return true;
 }
 

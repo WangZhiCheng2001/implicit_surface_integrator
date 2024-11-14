@@ -513,6 +513,53 @@ aabb_t get_aabb(const virtual_node_t& node)
     return result;
 }
 
+uint32_t get_closest_common_parent(const std::vector<bool>& mask, const int main_index)
+{
+    // Copy tree structure
+    auto tree = structures[main_index];
+
+    // Count how many geometries are queried
+    int count = 0;
+    for (int i = 0; i < mask.size(); i++) {
+        if (mask[i] == 1) { count++; }
+    }
+
+    uint32_t result = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < mask.size(); i++) {
+        if (mask[i] == 0) { continue; }
+
+        for (auto& iter : tree.leaf_index) {
+            // Find the location of the current query geometry in the tree
+            if (node_fetch_primitive_index(tree.nodes[iter]) != i) { continue; }
+
+            // Traverse from bottom to top and increase the count of all nodes by 1
+            uint32_t now = iter;
+            while (true) {
+                now = node_fetch_parent_index(tree.nodes[now]);
+
+                // now is root
+                if (now == 0xFFFFFFFFu) { break; }
+
+                // Use the primitive index of the internal node to count
+                if (node_fetch_primitive_index(tree.nodes[now]) == 0xFFFFFFu) {
+                    set_primitive_index(tree.nodes[now], 1);
+                } else {
+                    set_primitive_index(tree.nodes[now], node_fetch_primitive_index(tree.nodes[now]) + 1);
+                }
+
+                if (node_fetch_primitive_index(tree.nodes[now]) == count) {
+                    result = now;
+                    break;
+                }
+            }
+
+            break;
+        }
+    }
+
+    return result;
+}
+
 /* Geometry Generation */
 
 static constexpr node_t standard_new_node = {(uint64_t)0xFFFFFFFFFFFFFFFFu, (uint64_t)0xFFFFFFFFFFFFFFFFu};

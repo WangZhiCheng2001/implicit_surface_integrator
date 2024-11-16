@@ -1,7 +1,5 @@
 #pragma once
 
-#include <shared_mutex>
-
 #include <parallel_hashmap/phmap.h>
 #include <memory/memory_pool.hpp>
 
@@ -23,7 +21,7 @@ template <class T,
           class Eq    = phmap::priv::hash_default_eq<T>,
           class Alloc = std::allocator<T>,
           size_t N    = 4, // 2**N submaps
-          class Mutex = std::shared_mutex>
+          class Mutex = tbb::queuing_rw_mutex>
 using parallel_flat_hash_set = phmap::parallel_flat_hash_set<T, Hash, Eq, Alloc, N, Mutex>;
 
 template <class K,
@@ -32,7 +30,7 @@ template <class K,
           class Eq    = phmap::priv::hash_default_eq<K>,
           class Alloc = std::allocator<std::pair<const K, V>>,
           size_t N    = 4, // 2**N submaps
-          class Mutex = std::shared_mutex>
+          class Mutex = tbb::queuing_rw_mutex>
 using parallel_flat_hash_map = phmap::parallel_flat_hash_map<K, V, Hash, Eq, Alloc, N, Mutex>;
 
 template <class T,
@@ -53,7 +51,7 @@ template <class T,
           class Eq    = phmap::priv::hash_default_eq<T>,
           class Alloc = tbb::tbb_allocator<T>,
           size_t N    = 4, // 2**N submaps
-          class Mutex = std::shared_mutex>
+          class Mutex = tbb::queuing_rw_mutex>
 using parallel_flat_hash_set_mp = phmap::parallel_flat_hash_set<T, Hash, Eq, Alloc, N, Mutex>;
 
 template <class K,
@@ -62,5 +60,5 @@ template <class K,
           class Eq    = phmap::priv::hash_default_eq<K>,
           class Alloc = tbb::tbb_allocator<std::pair<const K, V>>,
           size_t N    = 4, // 2**N submaps
-          class Mutex = std::shared_mutex>
+          class Mutex = tbb::queuing_rw_mutex>
 using parallel_flat_hash_map_mp = phmap::parallel_flat_hash_map<K, V, Hash, Eq, Alloc, N, Mutex>;

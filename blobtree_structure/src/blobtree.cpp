@@ -1,8 +1,8 @@
-#include "internal_api.hpp"
-#include "primitive_descriptor.h"
-#include <iostream>
+#include <cassert>
 #include <stack>
 #include <vector>
+
+#include "internal_api.hpp"
 
 /* internal global variables for blobtree */
 typedef struct _node_t {
@@ -185,7 +185,7 @@ typedef struct _aabb_t {
 
 } aabb_t;
 
-typedef struct blobtree_t {
+struct blobtree_t {
     std::vector<node_t, tbb::tbb_allocator<node_t>>     nodes{};
     std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> leaf_index{};
 };
@@ -266,7 +266,7 @@ static constexpr inline auto node_fetch_right_child_index(node_t& node) { return
 
 /* basic functionalities */
 
-BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() { return primitives; }
+BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() noexcept { return primitives; }
 
 void shrink_primitives() { primitives.shrink_to_fit(); }
 

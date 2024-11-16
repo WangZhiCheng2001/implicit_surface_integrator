@@ -2,13 +2,6 @@
 
 #include <utils/fwd_types.hpp>
 
-struct half_patch_t {
-    uint32_t index{};
-    int8_t   orientation{};
-};
-
-using half_patch_pair_t = std::pair<half_patch_t, half_patch_t>;
-
 /// Compute iso-edges and edge-face connectivity
 ///
 ///@param[in] patch_faces            Patch faces taken from the kernel
@@ -33,7 +26,8 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
                               const stl_vector_mp<iso_edge_t>&              patch_edges,
                               const stl_vector_mp<polygon_face_t>&          patch_faces,
                               stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
-                              stl_vector_mp<uint32_t>&                      patch_function_label);
+                              stl_vector_mp<uint32_t>&                      patch_function_label,
+                              stl_vector_mp<uint32_t>&                      patch_of_face_mapping);
 
 /// this should be correct, so we won't implement it for now.
 // /// A validation of patch to function label through taking the majority vote of function labels on all the patch vertices

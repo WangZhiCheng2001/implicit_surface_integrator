@@ -11,7 +11,7 @@ int main()
     update_environment();
 
     std::cout << "Setting scene..." << std::endl;
-    update_scene("functions.json");
+    update_scene();
 
     std::cout << "Executing solver..." << std::endl;
     execute_solver();

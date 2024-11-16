@@ -96,6 +96,13 @@ struct iso_edge_t {
     stl_vector_mp<edge_header_t> headers{};
 };
 
+struct half_patch_t {
+    uint32_t index{};
+    int8_t   orientation{};
+};
+
+using half_patch_pair_t = std::pair<half_patch_t, half_patch_t>;
+
 namespace std
 {
 template <>

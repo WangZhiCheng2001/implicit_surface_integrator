@@ -71,18 +71,17 @@ struct equal_to<face_with_orient_t> {
 } // namespace std
 
 // topological ray shooting for implicit arrangement
-ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                     &tet_mesh,
-                                const stl_vector_mp<arrangement_t>           &cut_results,
-                                const stl_vector_mp<uint32_t>                &cut_result_index,
-                                const stl_vector_mp<iso_vertex_t>            &iso_verts,
-                                const stl_vector_mp<polygon_face_t>          &iso_faces,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &patches,
-                                const stl_vector_mp<uint32_t>                &patch_of_face,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &shells,
-                                const stl_vector_mp<uint32_t>                &shell_of_half_patch,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &components,
-                                const stl_vector_mp<uint32_t>                &component_of_patch,
-                                stl_vector_mp<stl_vector_mp<uint32_t>>       &arrangement_cells);
+ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                            &tet_mesh,
+                                const stl_vector_mp<std::shared_ptr<arrangement_t>> &cut_results,
+                                const stl_vector_mp<iso_vertex_t>                   &iso_verts,
+                                const stl_vector_mp<polygon_face_t>                 &iso_faces,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &patches,
+                                const stl_vector_mp<uint32_t>                       &patch_of_face,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &shells,
+                                const stl_vector_mp<uint32_t>                       &shell_of_half_patch,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &components,
+                                const stl_vector_mp<uint32_t>                       &component_of_patch,
+                                stl_vector_mp<stl_vector_mp<uint32_t>>              &arrangement_cells);
 
 // Given tet mesh,
 // build the map: v-->v_next, where v_next has lower order than v

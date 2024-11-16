@@ -1,5 +1,7 @@
 #pragma once
 
+#include <tbb/tbb.h>
+
 #include <macros.h>
 #include <container/small_vector.hpp>
 
@@ -19,6 +21,8 @@ using point_t = std::array<uint32_t, 3>;
 
 template <typename T>
 using stl_vector_mp = std::vector<T, tbb::tbb_allocator<T>>;
+template <typename T>
+using tbb_vector_mp                     = tbb::concurrent_vector<T, tbb::tbb_allocator<T>>;
 static constexpr uint32_t INVALID_INDEX = std::numeric_limits<uint32_t>::max();
 
 struct arrangement_t {
@@ -30,8 +34,8 @@ struct arrangement_t {
         stl_vector_mp<uint32_t> vertices{}; ///< An ordered list of boundary vertices. The face is always oriented
                                             ///< counterclockwise when viewed from the positive side of the supporting plane.
         uint32_t                supporting_plane{INVALID_INDEX}; ///< A set of supporting planes' indices for each edge.
-        uint32_t                positive_cell{INVALID_INDEX};    ///<  A set of positive side cells' indices for each edge.
-        uint32_t                negative_cell{INVALID_INDEX};    ///<  A set of negative side cells' indices for each edge.
+        uint32_t                positive_cell{INVALID_INDEX};    ///< A set of positive side cells' indices for each edge.
+        uint32_t                negative_cell{INVALID_INDEX};    ///< A set of negative side cells' indices for each edge.
     };
 
     stl_vector_mp<face_descriptor> faces{};                      ///< A set of boundary vertex indices in no particular order.
@@ -51,4 +55,4 @@ struct arrangement_t {
 
 IA_API bool          load_lut();
 IA_API void          lut_print_test();
-IA_API arrangement_t compute_arrangement(const stl_vector_mp<plane_t>& planes);
+IA_API arrangement_t compute_arrangement(const tbb_vector_mp<plane_t>& planes);

@@ -1,18 +1,17 @@
 #include <topology_ray_shooting.hpp>
 #include <patch_connectivity.hpp>
 
-ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                     &tet_mesh,
-                                const stl_vector_mp<arrangement_t>           &cut_results,
-                                const stl_vector_mp<uint32_t>                &cut_result_index,
-                                const stl_vector_mp<iso_vertex_t>            &iso_verts,
-                                const stl_vector_mp<polygon_face_t>          &iso_faces,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &patches,
-                                const stl_vector_mp<uint32_t>                &patch_of_face,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &shells,
-                                const stl_vector_mp<uint32_t>                &shell_of_half_patch,
-                                const stl_vector_mp<stl_vector_mp<uint32_t>> &components,
-                                const stl_vector_mp<uint32_t>                &component_of_patch,
-                                stl_vector_mp<stl_vector_mp<uint32_t>>       &arrangement_cells)
+ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                            &tet_mesh,
+                                const stl_vector_mp<std::shared_ptr<arrangement_t>> &cut_results,
+                                const stl_vector_mp<iso_vertex_t>                   &iso_verts,
+                                const stl_vector_mp<polygon_face_t>                 &iso_faces,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &patches,
+                                const stl_vector_mp<uint32_t>                       &patch_of_face,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &shells,
+                                const stl_vector_mp<uint32_t>                       &shell_of_half_patch,
+                                const stl_vector_mp<stl_vector_mp<uint32_t>>        &components,
+                                const stl_vector_mp<uint32_t>                       &component_of_patch,
+                                stl_vector_mp<stl_vector_mp<uint32_t>>              &arrangement_cells)
 {
     // map: tet vert index --> index of next vert (with smaller (x,y,z))
     stl_vector_mp<uint32_t> next_vert{};
@@ -52,7 +51,7 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                     &te
             const auto  extreme_v2     = extremal_edge_of_component[2 * i + 1];
             const auto  iso_vId        = iso_vert_on_v_v_next[extreme_v1];
             const auto  tetId          = iso_verts[iso_vId].header.volume_index;
-            const auto &tet_cut_result = cut_results[cut_result_index[tetId]];
+            const auto &tet_cut_result = *cut_results[tetId].get();
             // get local index of v1 and v2 in the tet
             uint32_t    local_v1, local_v2;
             for (uint32_t j = 0; j < 4; ++j) {
@@ -109,7 +108,7 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                     &te
                     // reached iso-vert at end of the ray
                     const auto  iso_vId_end        = iso_vert_on_v_v_next[v_curr];
                     const auto  end_tetId          = iso_verts[iso_vId_end].header.volume_index;
-                    const auto &end_tet_cut_result = cut_results[cut_result_index[end_tetId]];
+                    const auto &end_tet_cut_result = *cut_results[end_tetId].get();
                     auto        v_next             = next_vert[v_curr];
                     // find local vertex indices in the end tetrahedron
                     for (uint32_t j = 0; j < 4; ++j) {

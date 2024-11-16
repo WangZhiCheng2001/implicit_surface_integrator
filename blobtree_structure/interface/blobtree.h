@@ -1,6 +1,6 @@
 #pragma once
+
 #include "primitive_descriptor.h"
-#include <stdint.h>
 
 typedef struct {
     primitive_type type;

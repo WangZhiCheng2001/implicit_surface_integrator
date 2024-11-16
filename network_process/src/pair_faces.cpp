@@ -5,16 +5,16 @@
 #include <pair_faces.hpp>
 #include "utils/fwd_types.hpp"
 
-ISNP_API void compute_face_order(const iso_edge_t                                          &iso_edge,
-                                 const stl_vector_mp<tetrahedron_vertex_indices_t>         &tets,
-                                 const stl_vector_mp<iso_vertex_t>                         &iso_verts,
-                                 const stl_vector_mp<polygon_face_t>                       &iso_faces,
-                                 const stl_vector_mp<arrangement_t>                        &cut_results,
-                                 const stl_vector_mp<uint32_t>                             &cut_result_index,
-                                 const stl_vector_mp<uint32_t>                             &func_in_tet,
-                                 const stl_vector_mp<uint32_t>                             &start_index_of_tet,
-                                 const flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> &incident_tets,
-                                 stl_vector_mp<half_face_pair_t>                           &ordered_face_pairs)
+ISNP_API void compute_patch_order(const iso_edge_t                                                   &iso_edge,
+                                  const stl_vector_mp<tetrahedron_vertex_indices_t>                  &tets,
+                                  const stl_vector_mp<iso_vertex_t>                                  &iso_verts,
+                                  const stl_vector_mp<polygon_face_t>                                &iso_faces,
+                                  const stl_vector_mp<std::shared_ptr<arrangement_t>>                &cut_results,
+                                  const stl_vector_mp<uint32_t>                                      &func_in_tet,
+                                  const stl_vector_mp<uint32_t>                                      &start_index_of_tet,
+                                  const parallel_flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> &incident_tets,
+                                  const stl_vector_mp<uint32_t>                                      &patch_of_face_mapping,
+                                  stl_vector_mp<half_patch_pair_t>                                   &ordered_patch_pairs)
 {
     using unordered_set_mp_of_index_t =
         std::unordered_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>, ScalableMemoryPoolAllocator<uint32_t>>;
@@ -31,7 +31,7 @@ ISNP_API void compute_face_order(const iso_edge_t                               
     if (containing_tets.size() == 1) {
         //        std::cout << ">>>>>>>> iso-edge in tet" << std::endl;
         auto tet_id = *containing_tets.begin();
-        pair_faces_in_one_tet(cut_results[cut_result_index[tet_id]], iso_faces, iso_edge, ordered_face_pairs);
+        pair_patches_in_one_tet(*cut_results[tet_id].get(), iso_faces, iso_edge, patch_of_face_mapping, ordered_patch_pairs);
     } else {
         const auto  v1          = iso_edge.v1;
         const auto  v2          = iso_edge.v2;
@@ -70,16 +70,16 @@ ISNP_API void compute_face_order(const iso_edge_t                               
                 if (incident_tets1.find(tId) != incident_tets1.end()) { common_tetIds.emplace_back(tId); }
             }
             // pair half-faces
-            pair_faces_in_tets(iso_edge,
-                               {vId1, vId2},
-                               common_tetIds,
-                               tets,
-                               iso_faces,
-                               cut_results,
-                               cut_result_index,
-                               func_in_tet,
-                               start_index_of_tet,
-                               ordered_face_pairs);
+            pair_patches_in_tets(iso_edge,
+                                 {vId1, vId2},
+                                 common_tetIds,
+                                 tets,
+                                 iso_faces,
+                                 cut_results,
+                                 func_in_tet,
+                                 start_index_of_tet,
+                                 patch_of_face_mapping,
+                                 ordered_patch_pairs);
         } else {
             //            std::cout << ">>>>>>>> iso-edge on tet face" << std::endl;
             // iso_edge lies on a tet boundary face
@@ -93,24 +93,27 @@ ISNP_API void compute_face_order(const iso_edge_t                               
                 if (tet1_vIds.find(vId) != tet1_vIds.end()) common_vIds.emplace_back(vId);
             }
             // pair half-faces
-            pair_faces_in_tets(iso_edge,
-                               common_vIds,
-                               {tet_id1, tet_id2},
-                               tets,
-                               iso_faces,
-                               cut_results,
-                               cut_result_index,
-                               func_in_tet,
-                               start_index_of_tet,
-                               ordered_face_pairs);
+            pair_patches_in_tets(iso_edge,
+                                 common_vIds,
+                                 {tet_id1, tet_id2},
+                                 tets,
+                                 iso_faces,
+                                 cut_results,
+                                 func_in_tet,
+                                 start_index_of_tet,
+                                 patch_of_face_mapping,
+                                 ordered_patch_pairs);
         }
     }
 }
 
-ISNP_API void pair_faces_in_one_tet(const arrangement_t                 &tet_cut_result,
-                                    const stl_vector_mp<polygon_face_t> &iso_faces,
-                                    const iso_edge_t                    &iso_edge,
-                                    stl_vector_mp<half_face_pair_t>     &ordered_face_pairs)
+// ===============================================================================================
+
+ISNP_API void pair_patches_in_one_tet(const arrangement_t                 &tet_cut_result,
+                                      const stl_vector_mp<polygon_face_t> &iso_faces,
+                                      const iso_edge_t                    &iso_edge,
+                                      const stl_vector_mp<uint32_t>       &patch_of_face_mapping,
+                                      stl_vector_mp<half_patch_pair_t>    &ordered_patch_pairs)
 {
     // find tet faces that are incident to the iso_edge
     stl_vector_mp<bool>     is_incident_faces(tet_cut_result.faces.size(), false);
@@ -125,95 +128,84 @@ ISNP_API void pair_faces_in_one_tet(const arrangement_t                 &tet_cut
 
     // travel around the edge
     stl_vector_mp<bool> visited_cell(tet_cut_result.cells.size(), false);
+
+    struct travel_info_t {
+        uint32_t iso_face_id{invalid_index};
+        uint32_t face_id{invalid_index};
+        int8_t   face_sign{0};
+
+        void clear()
+        {
+            iso_face_id = invalid_index;
+            face_id     = invalid_index;
+            face_sign   = 0;
+        }
+
+        void move_update(travel_info_t &&other)
+        {
+            *this           = std::move(other);
+            this->face_sign = -this->face_sign;
+            other.clear();
+        }
+    };
+
+    auto travel_func = [&](uint32_t &cell_id, travel_info_t &info1, travel_info_t &info2) {
+        while (cell_id != invalid_index && !visited_cell[cell_id]) {
+            visited_cell[cell_id] = true;
+            // find next face
+            for (const auto &fId : tet_cut_result.cells[cell_id].faces) {
+                if (is_incident_faces[fId] && fId != info1.face_id) { info2.face_id = fId; }
+            }
+            if (info2.face_id == invalid_index) {
+                // next face is not found
+                break;
+            } else {
+                // get sign of face2 and find next cell
+                if (tet_cut_result.faces[info2.face_id].positive_cell == cell_id) {
+                    cell_id         = tet_cut_result.faces[info2.face_id].negative_cell;
+                    info2.face_sign = 1;
+                } else {
+                    cell_id         = tet_cut_result.faces[info2.face_id].positive_cell;
+                    info2.face_sign = -1;
+                }
+                // add (face1, face2) to the list of face pairs
+                info2.iso_face_id = iso_face_Id_of_face[info2.face_id];
+                ordered_patch_pairs.emplace_back(half_patch_t{patch_of_face_mapping[info1.iso_face_id], info1.face_sign},
+                                                 half_patch_t{patch_of_face_mapping[info2.iso_face_id], info1.face_sign});
+                // update face1 and clear face2
+                info1.move_update(std::move(info2));
+            }
+        }
+    };
+
     // start from the first incident face, and travel to its positive cell
-    auto                iso_face_id1 = iso_edge.headers[0].face_index;
-    auto                face_id1     = iso_faces[iso_face_id1].headers[0].local_face_index;
-    int8_t              face_sign_1  = 1;
-    auto                cell_id      = tet_cut_result.faces[face_id1].positive_cell;
-    //
-    auto                iso_face_id2 = invalid_index;
-    auto                face_id2     = invalid_index;
-    int8_t              face_sign_2  = 0; // unknown
-    while (cell_id != invalid_index && !visited_cell[cell_id]) {
-        visited_cell[cell_id] = true;
-        // find next face
-        for (const auto &fId : tet_cut_result.cells[cell_id].faces) {
-            if (is_incident_faces[fId] && fId != face_id1) { face_id2 = fId; }
-        }
-        if (face_id2 == invalid_index) {
-            // next face is not found
-            break;
-        } else {
-            // get sign of face2 and find next cell
-            if (tet_cut_result.faces[face_id2].positive_cell == cell_id) {
-                cell_id     = tet_cut_result.faces[face_id2].negative_cell;
-                face_sign_2 = 1;
-            } else {
-                cell_id     = tet_cut_result.faces[face_id2].positive_cell;
-                face_sign_2 = -1;
-            }
-            // add (face1, face2) to the list of face pairs
-            iso_face_id2 = iso_face_Id_of_face[face_id2];
-            ordered_face_pairs.emplace_back(half_face_t{iso_face_id1, face_sign_1}, half_face_t{iso_face_id2, face_sign_2});
-            // update face1 and clear face2
-            face_id1     = face_id2;
-            iso_face_id1 = iso_face_id2;
-            face_sign_1  = -face_sign_2;
-            face_id2     = invalid_index;
-            iso_face_id2 = invalid_index;
-            face_sign_2  = 0;
-        }
-    }
+    travel_info_t info1{iso_edge.headers[0].face_index,
+                        iso_faces[iso_edge.headers[0].face_index].headers[0].local_face_index,
+                        1};
+    travel_info_t info2{};
+    auto          cell_id = tet_cut_result.faces[info1.face_id].positive_cell;
+    travel_func(cell_id, info1, info2);
     // travel in a different direction
-    iso_face_id1 = iso_edge.headers[0].face_index;
-    face_id1     = iso_faces[iso_face_id1].headers[0].local_face_index;
-    face_sign_1  = -1;
-    cell_id      = tet_cut_result.faces[face_id1].negative_cell;
-    iso_face_id2 = invalid_index;
-    face_id2     = invalid_index;
-    face_sign_2  = 0;
-    while (cell_id != invalid_index && !visited_cell[cell_id]) {
-        visited_cell[cell_id] = true;
-        // find next face
-        for (const auto &fId : tet_cut_result.cells[cell_id].faces) {
-            if (is_incident_faces[fId] && fId != face_id1) { face_id2 = fId; }
-        }
-        if (face_id2 == invalid_index) {
-            // next face is not found
-            break;
-        } else {
-            // get sign of face2 and find next cell
-            if (tet_cut_result.faces[face_id2].positive_cell == cell_id) {
-                cell_id     = tet_cut_result.faces[face_id2].negative_cell;
-                face_sign_2 = 1;
-            } else {
-                cell_id     = tet_cut_result.faces[face_id2].positive_cell;
-                face_sign_2 = -1;
-            }
-            // add (face1, face2) to the list of face pairs
-            iso_face_id2 = iso_face_Id_of_face[face_id2];
-            ordered_face_pairs.emplace_back(half_face_t{iso_face_id1, face_sign_1}, half_face_t{iso_face_id2, face_sign_2});
-            // update face1 and clear face2
-            face_id1     = face_id2;
-            iso_face_id1 = iso_face_id2;
-            face_sign_1  = -face_sign_2;
-            face_id2     = invalid_index;
-            iso_face_id2 = invalid_index;
-            face_sign_2  = 0;
-        }
-    }
+    info1 = {iso_edge.headers[0].face_index,                                        //
+             iso_faces[iso_edge.headers[0].face_index].headers[0].local_face_index, //
+             -1};
+    info2.clear();
+    cell_id = tet_cut_result.faces[info1.face_id].negative_cell;
+    travel_func(cell_id, info1, info2);
 }
 
-ISNP_API void pair_faces_in_tets(const iso_edge_t                                  &iso_edge,
-                                 const stl_vector_mp<uint32_t>                     &containing_simplex,
-                                 const stl_vector_mp<uint32_t>                     &containing_tetIds,
-                                 const stl_vector_mp<tetrahedron_vertex_indices_t> &tets,
-                                 const stl_vector_mp<polygon_face_t>               &iso_faces,
-                                 const stl_vector_mp<arrangement_t>                &cut_results,
-                                 const stl_vector_mp<uint32_t>                     &cut_result_index,
-                                 const stl_vector_mp<uint32_t>                     &func_in_tet,
-                                 const stl_vector_mp<uint32_t>                     &start_index_of_tet,
-                                 stl_vector_mp<half_face_pair_t>                   &ordered_face_pairs)
+// ===============================================================================================
+
+ISNP_API void pair_patches_in_tets(const iso_edge_t                                    &iso_edge,
+                                   const stl_vector_mp<uint32_t>                       &containing_simplex,
+                                   const stl_vector_mp<uint32_t>                       &containing_tetIds,
+                                   const stl_vector_mp<tetrahedron_vertex_indices_t>   &tets,
+                                   const stl_vector_mp<polygon_face_t>                 &iso_faces,
+                                   const stl_vector_mp<std::shared_ptr<arrangement_t>> &cut_results,
+                                   const stl_vector_mp<uint32_t>                       &func_in_tet,
+                                   const stl_vector_mp<uint32_t>                       &start_index_of_tet,
+                                   const stl_vector_mp<uint32_t>                       &patch_of_face_mapping,
+                                   stl_vector_mp<half_patch_pair_t>                    &ordered_patch_pairs)
 {
     //// pre-processing
     // collect all iso-faces incident to the iso-edge
@@ -301,7 +293,7 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
     std::array<uint32_t, 3>                        implicit_pIds;
     std::array<uint32_t, 3>                        boundary_pIds;
     for (const auto i : containing_tetIds) {
-        if (cut_result_index[i] == invalid_index) {
+        if (cut_results[i]) {
             // empty tet i
             for (uint32_t fi = 0; fi < 4; ++fi) {
                 if (identical_tet_planes.find(face_header_t{i, fi}) != identical_tet_planes.end()) {
@@ -324,7 +316,7 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
             }
         } else {
             // non-empty tet i
-            const auto &arrangement = cut_results[cut_result_index[i]];
+            const auto &arrangement = *cut_results[i].get();
             const auto &vertices    = arrangement.vertices;
             const auto &faces       = arrangement.faces;
             auto        start_index = start_index_of_tet[i];
@@ -443,12 +435,9 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
 
     // find the half-iso-face of the local face in tet with given orientation
     // the orientation of an iso-face is defined by the smallest-index implicit function passing the iso-face
-    auto get_half_iso_face = [&iso_face_Id_of_face, &cut_results, &cut_result_index](face_header_t tet_face,
-                                                                                     int8_t        orient,
-                                                                                     uint32_t     &iso_face_id,
-                                                                                     int8_t       &iso_orient) {
+    auto get_half_iso_face = [&](face_header_t tet_face, int8_t orient, uint32_t &iso_face_id, int8_t &iso_orient) {
         iso_face_id              = iso_face_Id_of_face[tet_face];
-        const auto &cell_complex = cut_results[cut_result_index[tet_face.volume_index]];
+        const auto &cell_complex = *cut_results[tet_face.volume_index].get();
         const auto &faces        = cell_complex.faces;
         auto        supp_pId     = faces[tet_face.local_face_index].supporting_plane;
         if (supp_pId > 3) { // plane 0,1,2,3 are tet boundary planes
@@ -474,14 +463,10 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
     };
 
     // pair (tet_id, tet_face_id)
-    auto find_next = [&cut_results, &cut_result_index, &opposite_face, &iso_face_Id_of_face](face_header_t  face,
-                                                                                             int8_t         orient,
-                                                                                             face_header_t &face_next,
-                                                                                             int8_t        &orient_next,
-                                                                                             auto         &&find_next) {
+    auto find_next = [&](face_header_t face, int8_t orient, face_header_t &face_next, int8_t &orient_next, auto &&find_next) {
         const auto tet_id      = face.volume_index;
         const auto tet_face_id = face.local_face_index;
-        if (cut_result_index[tet_id] == invalid_index) {
+        if (!cut_results[tet_id]) {
             // empty tet
             if (orient == 1) { // Positive side: the tet
                 for (uint32_t fi = 0; fi < 4; ++fi) {
@@ -496,7 +481,7 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
             }
         } else {
             // non-empty tet
-            const auto &cell_complex = cut_results[cut_result_index[tet_id]];
+            const auto &cell_complex = *cut_results[tet_id].get();
             uint32_t    cell_id =
                 (orient == 1 ? cell_complex.faces[tet_face_id].positive_cell : cell_complex.faces[tet_face_id].negative_cell);
             if (cell_id != invalid_index) {
@@ -533,8 +518,8 @@ ISNP_API void pair_faces_in_tets(const iso_edge_t                               
         }
         get_half_iso_face(face_curr, orient_curr, iso_face_curr, iso_orient_curr);
         get_half_iso_face(face_next, orient_next, iso_face_next, iso_orient_next);
-        ordered_face_pairs.emplace_back(half_face_t{iso_face_curr, iso_orient_curr},
-                                        half_face_t{iso_face_next, iso_orient_next});
+        ordered_patch_pairs.emplace_back(half_patch_t{patch_of_face_mapping[iso_face_curr], iso_orient_curr},
+                                         half_patch_t{patch_of_face_mapping[iso_face_next], iso_orient_next});
         face_curr   = face_next;
         orient_curr = -orient_next;
     }

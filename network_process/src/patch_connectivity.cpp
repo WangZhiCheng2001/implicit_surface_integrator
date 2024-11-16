@@ -47,7 +47,8 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
                               const stl_vector_mp<iso_edge_t>&              patch_edges,
                               const stl_vector_mp<polygon_face_t>&          patch_faces,
                               stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
-                              stl_vector_mp<uint32_t>&                      patch_function_label)
+                              stl_vector_mp<uint32_t>&                      patch_function_label,
+                              stl_vector_mp<uint32_t>&                      patch_of_face_mapping)
 {
     stl_vector_mp<bool> visited_face(edges_of_face.size(), false);
     for (uint32_t i = 0; i < edges_of_face.size(); i++) {
@@ -58,7 +59,8 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
             Q.emplace(i);
             patch.emplace_back(i);
             visited_face[i] = true;
-            patch_function_label.emplace_back(patch_faces[Q.front()].implicit_function_index);
+            patch_function_label.emplace_back(patch_faces[i].implicit_function_index);
+            patch_of_face_mapping[i] = static_cast<uint32_t>(patch.size() - 1);
             while (!Q.empty()) {
                 const auto fId = Q.front();
                 Q.pop();
@@ -70,7 +72,8 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
                         if (!visited_face[other_fId]) {
                             Q.emplace(other_fId);
                             patch.emplace_back(other_fId);
-                            visited_face[other_fId] = true;
+                            patch_of_face_mapping[other_fId] = static_cast<uint32_t>(patch.size() - 1);
+                            visited_face[other_fId]          = true;
                         }
                     }
                 }

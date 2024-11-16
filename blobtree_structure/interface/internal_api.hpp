@@ -1,8 +1,11 @@
 #pragma once
+
+#include <tbb/tbb.h>
+
 #include <macros.h>
-#include "blobtree.h"
 #include <utils/eigen_alias.hpp>
-#include <tbb/tbb_allocator.h>
+
+#include "blobtree.h"
 
 #ifdef _DEBUG
 #include <map>
@@ -89,7 +92,7 @@ BPE_API void blobtree_free_virtual_node(virtual_node_t* node);
  * @brief Get all primitive nodes
  * @return Primitive array
  */
-BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives();
+BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() noexcept;
 
 // Geometry Operations
 

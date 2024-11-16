@@ -4,13 +4,15 @@
 #include "environment.h"
 #include "execution.h"
 
+setting_descriptor g_settings{};
+
 EXTERN_C API void update_setting(const setting_descriptor desc)
 {
     g_settings = std::move(desc);
     load_lut();
 }
 
-EXTERN_C API void update_scene(const char* input_file) { g_integrator.update_scene(input_file); }
+EXTERN_C API void update_scene() { g_integrator.update_scene(); }
 
 EXTERN_C API void update_environment()
 {
@@ -25,12 +27,6 @@ EXTERN_C API bool execute_solver()
     return true;
 }
 
-EXTERN_C API void clear_statistics()
-{
-    g_timers_manager.clear();
-}
+EXTERN_C API void clear_statistics() { g_timers_manager.clear(); }
 
-EXTERN_C API void print_statistics()
-{
-    g_timers_manager.print();
-}
+EXTERN_C API void print_statistics() { g_timers_manager.print(); }

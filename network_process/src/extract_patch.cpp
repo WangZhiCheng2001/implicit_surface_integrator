@@ -1,25 +1,28 @@
 #include <container/hashmap.hpp>
 
 #include <extract_patch.hpp>
-#include "implicit_arrangement.hpp"
-#include "utils/fwd_types.hpp"
 
 /// TODO: compress implicit function indices into uint16_t instead of uint32_t
-ISNP_API void extract_iso_mesh(uint32_t                                           num_1_func,
-                               uint32_t                                           num_2_func,
-                               uint32_t                                           num_more_func,
-                               const stl_vector_mp<arrangement_t>&                cut_results,
-                               const stl_vector_mp<uint32_t>&                     cut_result_index,
-                               const stl_vector_mp<uint32_t>&                     func_in_tet,
-                               const stl_vector_mp<uint32_t>&                     start_index_of_tet,
-                               const stl_vector_mp<tetrahedron_vertex_indices_t>& tets,
-                               stl_vector_mp<iso_vertex_t>&                       iso_verts,
-                               stl_vector_mp<polygon_face_t>&                     iso_faces)
+ISNP_API void extract_iso_mesh(uint32_t                                             num_1_func,
+                               uint32_t                                             num_2_func,
+                               uint32_t                                             num_more_func,
+                               const stl_vector_mp<std::shared_ptr<arrangement_t>>& cut_results,
+                               const stl_vector_mp<uint32_t>&                       func_in_tet,
+                               const stl_vector_mp<uint32_t>&                       start_index_of_tet,
+                               const tetrahedron_mesh_t&                            background_mesh,
+                               const stl_vector_mp<stl_vector_mp<double>>&          func_vals,
+                               stl_vector_mp<raw_point_t>&                          iso_pts,
+                               stl_vector_mp<iso_vertex_t>&                         iso_verts,
+                               stl_vector_mp<polygon_face_t>&                       iso_faces)
 {
+    const auto& pts  = background_mesh.vertices;
+    const auto& tets = background_mesh.indices;
+
     uint32_t n_tets       = static_cast<uint32_t>(tets.size());
     // estimate number of iso-verts and iso-faces
     uint32_t max_num_face = num_1_func + 4 * num_2_func + 8 * num_more_func;
     uint32_t max_num_vert = max_num_face;
+    iso_pts.reserve(max_num_vert);
     iso_verts.reserve(max_num_vert);
     iso_faces.reserve(max_num_face);
 
@@ -52,8 +55,8 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
 
     //
     for (uint32_t i = 0; i < n_tets; i++) {
-        if (cut_result_index[i] != invalid_index) {
-            const auto& arrangement = cut_results[cut_result_index[i]];
+        if (cut_results[i]) {
+            const auto& arrangement = *cut_results[i].get();
             const auto& vertices    = arrangement.vertices;
             const auto& faces       = arrangement.faces;
             auto        start_index = start_index_of_tet[i];
@@ -130,6 +133,11 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                                 iso_vert.header                    = {i, j, 2};
                                 iso_vert.simplex_vertex_indices    = {vId1, vId2};
                                 iso_vert.implicit_function_indices = {implicit_pIds[0]};
+
+                                const auto f1    = func_vals[implicit_pIds[0]][vId1];
+                                const auto f2    = func_vals[implicit_pIds[0]][vId2];
+                                const auto coord = compute_barycentric_coords(f1, f2);
+                                iso_pts.emplace_back(coord[0] * pts[vId1] + coord[1] * pts[vId2]);
                             }
                             iso_vId_of_vert.back() = iter_inserted.first->second;
                             break;
@@ -152,6 +160,21 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                                 iso_vert.header                    = {i, j, 3};
                                 iso_vert.simplex_vertex_indices    = {vIds3[0], vIds3[1], vIds3[2]};
                                 iso_vert.implicit_function_indices = {implicit_pIds[0], implicit_pIds[1]};
+
+                                //
+                                const auto f1 = std::array{
+                                    func_vals[implicit_pIds[0]][vIds3[0]],
+                                    func_vals[implicit_pIds[0]][vIds3[1]],
+                                    func_vals[implicit_pIds[0]][vIds3[2]],
+                                };
+                                const auto f2 = std::array{
+                                    func_vals[implicit_pIds[1]][vIds3[0]],
+                                    func_vals[implicit_pIds[1]][vIds3[1]],
+                                    func_vals[implicit_pIds[1]][vIds3[2]],
+                                };
+                                const auto coord = compute_barycentric_coords(f1, f2);
+                                iso_pts.emplace_back(coord[0] * pts[vIds3[0]] + coord[1] * pts[vIds3[1]]
+                                                     + coord[2] * pts[vIds3[2]]);
                             }
                             iso_vId_of_vert.back() = iter_inserted.first->second;
                             break;
@@ -163,6 +186,29 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                             iso_vert.header                    = {i, j, 4};
                             iso_vert.simplex_vertex_indices    = tets[i];
                             iso_vert.implicit_function_indices = implicit_pIds;
+
+                            const auto f1 = std::array{
+                                func_vals[implicit_pIds[0]][tets[i][0]],
+                                func_vals[implicit_pIds[0]][tets[i][1]],
+                                func_vals[implicit_pIds[0]][tets[i][2]],
+                                func_vals[implicit_pIds[0]][tets[i][3]],
+                            };
+                            const auto f2 = std::array{
+                                func_vals[implicit_pIds[1]][tets[i][0]],
+                                func_vals[implicit_pIds[1]][tets[i][1]],
+                                func_vals[implicit_pIds[1]][tets[i][2]],
+                                func_vals[implicit_pIds[1]][tets[i][3]],
+                            };
+                            const auto f3 = std::array{
+                                func_vals[implicit_pIds[2]][tets[i][0]],
+                                func_vals[implicit_pIds[2]][tets[i][1]],
+                                func_vals[implicit_pIds[2]][tets[i][2]],
+                                func_vals[implicit_pIds[2]][tets[i][3]],
+                            };
+                            const auto coord = compute_barycentric_coords(f1, f2, f3);
+                            iso_pts.emplace_back(coord[0] * pts[tets[i][0]] + coord[1] * pts[tets[i][1]]
+                                                 + coord[2] * pts[tets[i][2]] + coord[3] * pts[tets[i][3]]);
+
                             break;
                         }
                         case 3: // on tet vertex
@@ -182,8 +228,9 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                                 auto& iso_vert                     = iso_verts.emplace_back();
                                 iso_vert.header                    = {i, j, 1};
                                 iso_vert.implicit_function_indices = {tets[i][vId]};
+
+                                iso_pts.emplace_back(pts[iso_vert.simplex_vertex_indices[0]]);
                             }
-                            //                        iso_vId_of_vert[j] = iter_inserted.first->second;
                             iso_vId_of_vert.back() = iter_inserted.first->second;
                             break;
                         }
@@ -246,95 +293,4 @@ ISNP_API void compute_iso_face_key(const stl_vector_mp<uint32_t>& face_verts, po
     key[0] = min_vert;
     key[1] = second_min_vert;
     key[2] = max_vert;
-}
-
-ISNP_API void compute_iso_vert_xyz(const stl_vector_mp<iso_vertex_t>&       iso_verts,
-                                   const Eigen::Ref<const Eigen::MatrixXd>& func_vals,
-                                   const stl_vector_mp<raw_point_t>&        pts,
-                                   stl_vector_mp<raw_point_t>&              iso_pts)
-{
-    iso_pts.resize(iso_verts.size());
-    std::array<double, 2> b2;
-    std::array<double, 3> f1s3;
-    std::array<double, 3> f2s3;
-    std::array<double, 3> b3;
-    std::array<double, 4> f1s4;
-    std::array<double, 4> f2s4;
-    std::array<double, 4> f3s4;
-    std::array<double, 4> b4;
-    for (uint32_t i = 0; i < iso_verts.size(); i++) {
-        const auto& iso_vert = iso_verts[i];
-        switch (iso_vert.header.minimal_simplex_flag) {
-            case 2: // on tet edge
-            {
-                const auto vId1 = iso_vert.simplex_vertex_indices[0];
-                const auto vId2 = iso_vert.simplex_vertex_indices[1];
-                const auto fId  = iso_vert.implicit_function_indices[0];
-                const auto f1   = func_vals(fId, vId1);
-                const auto f2   = func_vals(fId, vId2);
-                //
-                compute_barycentric_coords(f1, f2, b2);
-                iso_pts[i][0] = b2[0] * pts[vId1][0] + b2[1] * pts[vId2][0];
-                iso_pts[i][1] = b2[0] * pts[vId1][1] + b2[1] * pts[vId2][1];
-                iso_pts[i][2] = b2[0] * pts[vId1][2] + b2[1] * pts[vId2][2];
-                break;
-            }
-            case 3: // on tet face
-            {
-                const auto vId1 = iso_vert.simplex_vertex_indices[0];
-                const auto vId2 = iso_vert.simplex_vertex_indices[1];
-                const auto vId3 = iso_vert.simplex_vertex_indices[2];
-                const auto fId1 = iso_vert.implicit_function_indices[0];
-                const auto fId2 = iso_vert.implicit_function_indices[1];
-                //
-                f1s3[0]         = func_vals(fId1, vId1);
-                f1s3[1]         = func_vals(fId1, vId2);
-                f1s3[2]         = func_vals(fId1, vId3);
-                //
-                f2s3[0]         = func_vals(fId2, vId1);
-                f2s3[1]         = func_vals(fId2, vId2);
-                f2s3[2]         = func_vals(fId2, vId3);
-                //
-                compute_barycentric_coords(f1s3, f2s3, b3);
-                iso_pts[i][0] = b3[0] * pts[vId1][0] + b3[1] * pts[vId2][0] + b3[2] * pts[vId3][0];
-                iso_pts[i][1] = b3[0] * pts[vId1][1] + b3[1] * pts[vId2][1] + b3[2] * pts[vId3][1];
-                iso_pts[i][2] = b3[0] * pts[vId1][2] + b3[1] * pts[vId2][2] + b3[2] * pts[vId3][2];
-                break;
-            }
-            case 4: // in tet cell
-            {
-                auto vId1 = iso_vert.simplex_vertex_indices[0];
-                auto vId2 = iso_vert.simplex_vertex_indices[1];
-                auto vId3 = iso_vert.simplex_vertex_indices[2];
-                auto vId4 = iso_vert.simplex_vertex_indices[3];
-                auto fId1 = iso_vert.implicit_function_indices[0];
-                auto fId2 = iso_vert.implicit_function_indices[1];
-                auto fId3 = iso_vert.implicit_function_indices[2];
-                f1s4[0]   = func_vals(fId1, vId1);
-                f1s4[1]   = func_vals(fId1, vId2);
-                f1s4[2]   = func_vals(fId1, vId3);
-                f1s4[3]   = func_vals(fId1, vId4);
-                //
-                f2s4[0]   = func_vals(fId2, vId1);
-                f2s4[1]   = func_vals(fId2, vId2);
-                f2s4[2]   = func_vals(fId2, vId3);
-                f2s4[3]   = func_vals(fId2, vId4);
-                //
-                f3s4[0]   = func_vals(fId3, vId1);
-                f3s4[1]   = func_vals(fId3, vId2);
-                f3s4[2]   = func_vals(fId3, vId3);
-                f3s4[3]   = func_vals(fId3, vId4);
-                //
-                compute_barycentric_coords(f1s4, f2s4, f3s4, b4);
-                iso_pts[i][0] = b4[0] * pts[vId1][0] + b4[1] * pts[vId2][0] + b4[2] * pts[vId3][0] + b4[3] * pts[vId4][0];
-                iso_pts[i][1] = b4[0] * pts[vId1][1] + b4[1] * pts[vId2][1] + b4[2] * pts[vId3][1] + b4[3] * pts[vId4][1];
-                iso_pts[i][2] = b4[0] * pts[vId1][2] + b4[1] * pts[vId2][2] + b4[2] * pts[vId3][2] + b4[3] * pts[vId4][2];
-                break;
-            }
-            case 1: // on tet vertex
-                iso_pts[i] = pts[iso_vert.simplex_vertex_indices[0]];
-                break;
-            default: break;
-        }
-    }
 }

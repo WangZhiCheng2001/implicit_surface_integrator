@@ -1,7 +1,7 @@
 #pragma once
 
 #define TBB_PREVIEW_MEMORY_POOL 1
-#include <tbb/tbb_allocator.h>
+#include <tbb/tbb.h>
 #include <tbb/memory_pool.h>
 
 class ScalableMemoryPoolSingleton

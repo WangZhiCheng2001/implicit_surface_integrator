@@ -9,5 +9,5 @@ typedef struct sSetting {
 } setting_descriptor;
 
 EXTERN_C API void update_setting(const setting_descriptor desc);
-EXTERN_C API void update_scene(const char* input_file);
+EXTERN_C API void update_scene();
 EXTERN_C API void update_environment();

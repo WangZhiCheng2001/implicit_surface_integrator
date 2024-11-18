@@ -14,7 +14,8 @@ ISNP_API void compute_patch_order(const iso_edge_t                              
                                   const stl_vector_mp<uint32_t>                                      &start_index_of_tet,
                                   const parallel_flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> &incident_tets,
                                   const stl_vector_mp<uint32_t>                                      &patch_of_face_mapping,
-                                  stl_vector_mp<half_patch_pair_t>                                   &ordered_patch_pairs)
+                                  stl_vector_mp<small_vector_mp<uint32_t>>                           &half_patch_adj_list,
+                                  stl_vector_mp<dynamic_bitset_mp<>>                                 &patch_func_signs)
 {
     using unordered_set_mp_of_index_t =
         std::unordered_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>, ScalableMemoryPoolAllocator<uint32_t>>;
@@ -31,7 +32,12 @@ ISNP_API void compute_patch_order(const iso_edge_t                              
     if (containing_tets.size() == 1) {
         //        std::cout << ">>>>>>>> iso-edge in tet" << std::endl;
         auto tet_id = *containing_tets.begin();
-        pair_patches_in_one_tet(*cut_results[tet_id].get(), iso_faces, iso_edge, patch_of_face_mapping, ordered_patch_pairs);
+        pair_patches_in_one_tet(*cut_results[tet_id].get(),
+                                iso_faces,
+                                iso_edge,
+                                patch_of_face_mapping,
+                                half_patch_adj_list,
+                                patch_func_signs);
     } else {
         const auto  v1          = iso_edge.v1;
         const auto  v2          = iso_edge.v2;
@@ -79,7 +85,8 @@ ISNP_API void compute_patch_order(const iso_edge_t                              
                                  func_in_tet,
                                  start_index_of_tet,
                                  patch_of_face_mapping,
-                                 ordered_patch_pairs);
+                                 half_patch_adj_list,
+                                 patch_func_signs);
         } else {
             //            std::cout << ">>>>>>>> iso-edge on tet face" << std::endl;
             // iso_edge lies on a tet boundary face
@@ -102,18 +109,20 @@ ISNP_API void compute_patch_order(const iso_edge_t                              
                                  func_in_tet,
                                  start_index_of_tet,
                                  patch_of_face_mapping,
-                                 ordered_patch_pairs);
+                                 half_patch_adj_list,
+                                 patch_func_signs);
         }
     }
 }
 
 // ===============================================================================================
 
-ISNP_API void pair_patches_in_one_tet(const arrangement_t                 &tet_cut_result,
-                                      const stl_vector_mp<polygon_face_t> &iso_faces,
-                                      const iso_edge_t                    &iso_edge,
-                                      const stl_vector_mp<uint32_t>       &patch_of_face_mapping,
-                                      stl_vector_mp<half_patch_pair_t>    &ordered_patch_pairs)
+ISNP_API void pair_patches_in_one_tet(const arrangement_t                      &tet_cut_result,
+                                      const stl_vector_mp<polygon_face_t>      &iso_faces,
+                                      const iso_edge_t                         &iso_edge,
+                                      const stl_vector_mp<uint32_t>            &patch_of_face_mapping,
+                                      stl_vector_mp<small_vector_mp<uint32_t>> &half_patch_adj_list,
+                                      stl_vector_mp<dynamic_bitset_mp<>>       &patch_func_signs)
 {
     // find tet faces that are incident to the iso_edge
     stl_vector_mp<bool>     is_incident_faces(tet_cut_result.faces.size(), false);
@@ -169,9 +178,15 @@ ISNP_API void pair_patches_in_one_tet(const arrangement_t                 &tet_c
                     info2.face_sign = -1;
                 }
                 // add (face1, face2) to the list of face pairs
-                info2.iso_face_id = iso_face_Id_of_face[info2.face_id];
-                ordered_patch_pairs.emplace_back(half_patch_t{patch_of_face_mapping[info1.iso_face_id], info1.face_sign},
-                                                 half_patch_t{patch_of_face_mapping[info2.iso_face_id], info1.face_sign});
+                info2.iso_face_id            = iso_face_Id_of_face[info2.face_id];
+                const auto half_patch_index1 = info1.face_sign > 0 ? 2 * patch_of_face_mapping[info1.iso_face_id]
+                                                                   : 2 * patch_of_face_mapping[info1.iso_face_id] + 1;
+                const auto half_patch_index2 = info2.face_sign > 0 ? 2 * patch_of_face_mapping[info2.iso_face_id]
+                                                                   : 2 * patch_of_face_mapping[info2.iso_face_id] + 1;
+                half_patch_adj_list[half_patch_index1].emplace_back(half_patch_index2);
+                half_patch_adj_list[half_patch_index2].emplace_back(half_patch_index1);
+                if (info2.face_sign > 0) patch_func_signs[half_patch_index1 >> 1][half_patch_index2 >> 1] = true;
+                if (info1.face_sign > 0) patch_func_signs[half_patch_index2 >> 1][half_patch_index1 >> 1] = true;
                 // update face1 and clear face2
                 info1.move_update(std::move(info2));
             }
@@ -205,7 +220,8 @@ ISNP_API void pair_patches_in_tets(const iso_edge_t                             
                                    const stl_vector_mp<uint32_t>                       &func_in_tet,
                                    const stl_vector_mp<uint32_t>                       &start_index_of_tet,
                                    const stl_vector_mp<uint32_t>                       &patch_of_face_mapping,
-                                   stl_vector_mp<half_patch_pair_t>                    &ordered_patch_pairs)
+                                   stl_vector_mp<small_vector_mp<uint32_t>>            &half_patch_adj_list,
+                                   stl_vector_mp<dynamic_bitset_mp<>>                  &patch_func_signs)
 {
     //// pre-processing
     // collect all iso-faces incident to the iso-edge
@@ -518,8 +534,16 @@ ISNP_API void pair_patches_in_tets(const iso_edge_t                             
         }
         get_half_iso_face(face_curr, orient_curr, iso_face_curr, iso_orient_curr);
         get_half_iso_face(face_next, orient_next, iso_face_next, iso_orient_next);
-        ordered_patch_pairs.emplace_back(half_patch_t{patch_of_face_mapping[iso_face_curr], iso_orient_curr},
-                                         half_patch_t{patch_of_face_mapping[iso_face_next], iso_orient_next});
+        //
+        const auto half_patch_index1 =
+            iso_orient_curr > 0 ? 2 * patch_of_face_mapping[iso_face_curr] : 2 * patch_of_face_mapping[iso_face_curr] + 1;
+        const auto half_patch_index2 =
+            iso_orient_next > 0 ? 2 * patch_of_face_mapping[iso_face_next] : 2 * patch_of_face_mapping[iso_face_next] + 1;
+        half_patch_adj_list[half_patch_index1].emplace_back(half_patch_index2);
+        half_patch_adj_list[half_patch_index2].emplace_back(half_patch_index1);
+        if (iso_orient_next > 0) patch_func_signs[half_patch_index1 >> 1][half_patch_index2 >> 1] = true;
+        if (iso_orient_curr > 0) patch_func_signs[half_patch_index2 >> 1][half_patch_index1 >> 1] = true;
+        //
         face_curr   = face_next;
         orient_curr = -orient_next;
     }

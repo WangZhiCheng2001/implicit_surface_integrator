@@ -52,6 +52,7 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     // 2. filter active functions in each tetrahedron
     // 3. compute arrangement in each tet (skip robust test)
     // 4. compute incident tets for degenerate vertices
+    // CAUTION: during process, always keep positive signs as inside (sdf), and this is reversed as usual
     // stl_vector_mp<bool>                           sample_function_label(num_funcs, false);
     stl_vector_mp<stl_vector_mp<double>>          vertex_scalar_values(num_vert, stl_vector_mp<double>(num_funcs));
     stl_vector_mp<uint32_t>                       active_functions_in_tet{}; // active function indices in CRS vector format
@@ -89,7 +90,8 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
             }
         };
 
-        auto scalar_field_sign       = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
+        // auto scalar_field_sign       = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
+        auto scalar_field_sign       = [](double x) -> int8_t { return (x < 0) ? 1 : ((x > 0) ? -1 : 0); };
         auto get_or_init_vertex_info = [&, this](uint32_t vert_index, uint32_t tet_index) {
             std::call_once(vertex_sign_constructed[vert_index], [&, this] {
                 const auto& vertex        = background_vertices[vert_index];
@@ -137,7 +139,7 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                 if (auto sign = vi0.signs[j] + vi1.signs[j] + vi2.signs[j] + vi3.signs[j]; -4 < sign && sign < 4) {
                     index                              = curr_active_func_index.fetch_add(1, std::memory_order_acq_rel) + 1;
                     active_functions_in_tet[index - 1] = static_cast<uint32_t>(j);
-                    planes.emplace_back(plane_t{vs0[j], vs1[j], vs2[j], vs3[j]});
+                    planes.emplace_back(plane_t{-vs0[j], -vs1[j], -vs2[j], -vs3[j]});
                 }
             });
 
@@ -229,11 +231,16 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     }
 
     // compute order of patches around chains
-    // pair<uint32_t, int8_t> : pair (iso-face index, iso-face orientation)
-    stl_vector_mp<stl_vector_mp<half_patch_pair_t>> half_patch_pair_list{};
+    // (patch i, 1) <--> 2i,  (patch i, -1) <--> 2i+1
+    // compute half-patch adjacency list
+    // stl_vector_mp<stl_vector_mp<half_patch_pair_t>> half_patch_pair_list{};
+    stl_vector_mp<small_vector_mp<uint32_t>> half_patch_adj_list(2 * patches.size());
+    // HINT: always keep positive sign inside
+    stl_vector_mp<dynamic_bitset_mp<>>       patch_func_signs(2 * patches.size(), dynamic_bitset_mp<>(num_funcs, false));
+    for (uint32_t i = 0; i < num_funcs; ++i) patch_func_signs[i][i] = true;
     {
         timers_manager.push_timer("compute order of patches around chains");
-        half_patch_pair_list.resize(chains.size());
+        // half_patch_pair_list.resize(chains.size());
         // order iso-faces incident to each representative iso-edge
         for (uint32_t i = 0; i < chains.size(); i++) {
             // pick first iso-edge from each chain as representative
@@ -248,7 +255,9 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                                 start_index_of_tet,
                                 incident_tets,
                                 patch_of_face,
-                                half_patch_pair_list[i]);
+                                half_patch_adj_list,
+                                patch_func_signs);
+            // half_patch_pair_list[i]);
         }
         timers_manager.pop_timer("compute order of patches around chains");
     }
@@ -261,8 +270,8 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     stl_vector_mp<uint32_t>                component_of_patch{};
     {
         timers_manager.push_timer("group patches into shells and components");
-        compute_shells_and_components(static_cast<uint32_t>(patches.size()),
-                                      half_patch_pair_list,
+        compute_shells_and_components(half_patch_adj_list,
+                                      patch_func_signs,
                                       shells,
                                       shell_of_half_patch,
                                       components,

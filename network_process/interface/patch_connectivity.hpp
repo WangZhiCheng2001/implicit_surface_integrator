@@ -1,5 +1,7 @@
 #pragma once
 
+#include <container/dynamic_bitset.hpp>
+
 #include <utils/fwd_types.hpp>
 
 /// Compute iso-edges and edge-face connectivity
@@ -57,19 +59,18 @@ ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch
 /// each shell is a list of half-patches
 /// each component is a list of patches
 /// we also build maps: half-patch --> shell,  patch --> component
-///@param[in] num_patch         Patch number
-///@param[in] half_patch_pair_list          The list of half patch represented as (patch i, 1) and (patch i, -1); Maps to a
-/// single half-patch index: (patch i, 1) <--> 2i,  (patch i, -1) <--> 2i+1
+/// @param[in] half_patch_adj_list    The adjacency list of half-patches
+/// @param[in] patch_func_signs  The function signs' array of half-patches
 ///
 /// @param[out] shell_of_patch          Map: half-patch --> shell
 /// @param[out] component           Connected componeent represented as a list of patches
 /// @param[out] component_of_patch          Map: patch --> component
-ISNP_API void compute_shells_and_components(uint32_t                                               num_patch,
-                                            const stl_vector_mp<stl_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                shells,
-                                            stl_vector_mp<uint32_t>&                               shell_of_half_patch,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                components,
-                                            stl_vector_mp<uint32_t>&                               component_of_patch);
+ISNP_API void compute_shells_and_components(const stl_vector_mp<small_vector_mp<uint32_t>>& half_patch_adj_list,
+                                            const stl_vector_mp<dynamic_bitset_mp<>>&       patch_func_signs,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         shells,
+                                            stl_vector_mp<uint32_t>&                        shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         components,
+                                            stl_vector_mp<uint32_t>&                        component_of_patch);
 
 /// group shells into arrangement cells
 ///

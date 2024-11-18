@@ -33,9 +33,9 @@ struct arrangement_t {
     struct face_descriptor {
         stl_vector_mp<uint32_t> vertices{}; ///< An ordered list of boundary vertices. The face is always oriented
                                             ///< counterclockwise when viewed from the positive side of the supporting plane.
-        uint32_t                supporting_plane{INVALID_INDEX}; ///< A set of supporting planes' indices for each edge.
-        uint32_t                positive_cell{INVALID_INDEX};    ///< A set of positive side cells' indices for each edge.
-        uint32_t                negative_cell{INVALID_INDEX};    ///< A set of negative side cells' indices for each edge.
+        uint32_t                supporting_plane{INVALID_INDEX}; ///< Plane index of the supporting plane.
+        uint32_t                positive_cell{INVALID_INDEX};    ///< The cell index on the positive side of this face.
+        uint32_t                negative_cell{INVALID_INDEX};    ///< The cell index on the negative side of this face.
     };
 
     stl_vector_mp<face_descriptor> faces{};                      ///< A set of boundary vertex indices in no particular order.

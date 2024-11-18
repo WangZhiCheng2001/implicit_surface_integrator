@@ -126,27 +126,14 @@ ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch
     }
 }
 
-ISNP_API void compute_shells_and_components(uint32_t                                               num_patch,
-                                            const stl_vector_mp<stl_vector_mp<half_patch_pair_t>>& half_patch_pair_list,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                shells,
-                                            stl_vector_mp<uint32_t>&                               shell_of_half_patch,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&                components,
-                                            stl_vector_mp<uint32_t>&                               component_of_patch)
+ISNP_API void compute_shells_and_components(const stl_vector_mp<small_vector_mp<uint32_t>>& half_patch_adj_list,
+                                            const stl_vector_mp<dynamic_bitset_mp<>>&       patch_func_signs,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         shells,
+                                            stl_vector_mp<uint32_t>&                        shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         components,
+                                            stl_vector_mp<uint32_t>&                        component_of_patch)
 {
-    // (patch i, 1) <--> 2i,  (patch i, -1) <--> 2i+1
-    // compute half-patch adjacency list
-    stl_vector_mp<small_vector_mp<uint32_t>> half_patch_adj_list(2 * num_patch);
-    for (const auto& half_patch_pairs : half_patch_pair_list) {
-        for (uint32_t i = 0; i < half_patch_pairs.size(); i++) {
-            const auto& [hp1, hp2] = half_patch_pairs[i];
-            // half-patch index of hp1
-            const auto hp_Id1      = (hp1.orientation == 1) ? 2 * hp1.index : (2 * hp1.index + 1);
-            // half-patch index of hp2
-            const auto hp_Id2      = (hp2.orientation == 1) ? 2 * hp2.index : (2 * hp2.index + 1);
-            half_patch_adj_list[hp_Id1].emplace_back(hp_Id2);
-            half_patch_adj_list[hp_Id2].emplace_back(hp_Id1);
-        }
-    }
+    const auto          num_patch = half_patch_adj_list.size() / 2;
     // find connected component of half-patch adjacency graph
     // each component is a shell
     stl_vector_mp<bool> visited_flags(2 * num_patch, false);

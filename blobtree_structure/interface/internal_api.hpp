@@ -24,6 +24,16 @@ BPE_API double evaluate(const extrude_descriptor_t& desc, const Eigen::Ref<const
 
 BPE_API double evaluate(const primitive_node_t& node, const raw_vector3d_t& point);
 
+// Basic Operations
+
+/**
+ * @brief Get all primitive nodes
+ * @return Primitive array
+ */
+BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() noexcept;
+
+BPE_API void free_sub_blobtree(uint32_t index) noexcept;
+
 // Geometry Generation
 
 /**
@@ -87,12 +97,6 @@ BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t& des
  * @param[in] node		The virtual node to be released
  */
 BPE_API void blobtree_free_virtual_node(virtual_node_t* node);
-
-/**
- * @brief Get all primitive nodes
- * @return Primitive array
- */
-BPE_API std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>& get_primitives() noexcept;
 
 // Geometry Operations
 

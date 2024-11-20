@@ -1,12 +1,10 @@
 #include "internal_api.hpp"
 
 #include "globals.hpp"
-#include "aabb.hpp"
-#include "node_operation.hpp"
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const constant_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const constant_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -18,9 +16,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const constant
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const plane_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const plane_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -32,9 +30,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const plane_de
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const sphere_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const sphere_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -51,9 +49,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const sphere_d
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cylinder_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const cylinder_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -74,9 +72,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cylinder
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cone_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const cone_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -97,9 +95,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const cone_des
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const box_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const box_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -116,9 +114,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const box_desc
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const mesh_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const mesh_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 
@@ -134,9 +132,9 @@ BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const mesh_des
     return true;
 }
 
-BPE_API bool virtual_node_replace_primitive(virtual_node_t* node, const extrude_descriptor_t& desc)
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const extrude_descriptor_t& desc)
 {
-    auto& node_in_tree = structures[node->main_index].nodes[node->inner_index];
+    auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
     if (!node_fetch_is_primitive(node_in_tree)) { return false; }
 

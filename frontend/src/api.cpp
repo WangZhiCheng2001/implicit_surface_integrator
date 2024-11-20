@@ -1,6 +1,6 @@
 #include "implicit_arrangement.hpp"
-#include "integrator.hpp"
-#include "statistics.hpp"
+#include "globals.hpp"
+
 #include "environment.h"
 #include "execution.h"
 
@@ -12,20 +12,12 @@ EXTERN_C API void update_setting(const setting_descriptor desc)
     load_lut();
 }
 
-EXTERN_C API void update_scene() { g_integrator.update_scene(); }
-
 EXTERN_C API void update_environment()
 {
     g_integrator.update_background_mesh(-Eigen::Vector3d::Ones(), Eigen::Vector3d::Ones());
 }
 
-EXTERN_C API bool execute_solver()
-{
-    if (!g_integrator.run(g_timers_manager)) return false;
-    g_integrator.compute(g_timers_manager);
-
-    return true;
-}
+EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node) { return g_integrator.run(*tree_node); }
 
 EXTERN_C API void clear_statistics() { g_timers_manager.clear(); }
 

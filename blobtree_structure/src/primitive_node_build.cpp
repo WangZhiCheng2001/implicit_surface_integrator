@@ -1,8 +1,6 @@
 #include "internal_api.hpp"
 
 #include "globals.hpp"
-#include "aabb.hpp"
-#include "node_operation.hpp"
 
 /* Geometry Generation */
 

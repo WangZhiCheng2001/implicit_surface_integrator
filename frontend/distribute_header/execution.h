@@ -2,7 +2,6 @@
 
 #include <stdbool.h>
 
-#include <macros.h>
 #include <blobtree.h>
 
 typedef struct {
@@ -20,7 +19,7 @@ typedef struct {
     bool       success;
 } solve_result_t;
 
-EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node);
+extern "C" __declspec(dllimport) solve_result_t execute_solver(const virtual_node_t* tree_node);
 // output time usage statistics to console
-EXTERN_C API void           print_statistics();
-EXTERN_C API void           clear_statistics();
+extern "C" __declspec(dllimport) void           print_statistics();
+extern "C" __declspec(dllimport) void           clear_statistics();

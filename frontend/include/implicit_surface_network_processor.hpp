@@ -1,8 +1,7 @@
 #pragma once
 
 #include <implicit_arrangement.hpp>
-#include <timer/scoped_timer.hpp>
-#include <utils/fwd_types.hpp>
+#include "execution.h"
 
 #include "background_mesh_manager.hpp"
 #include "patch_integrator.hpp"
@@ -11,7 +10,7 @@ struct ImplicitSurfaceNetworkProcessor {
     void update_background_mesh(const Eigen::Ref<const raw_point_t>& aabb_min,
                                 const Eigen::Ref<const raw_point_t>& aabb_max) noexcept;
     void clear() noexcept;
-    bool run(labelled_timers_manager& timers_manager) noexcept;
+    solve_result_t run(const virtual_node_t& tree_node) noexcept;
 
     /* adaptors */
     BackgroundMeshManager background_mesh_manager{};
@@ -32,9 +31,4 @@ struct ImplicitSurfaceNetworkProcessor {
                   ///< opposite orientation with respect to the shell.
     stl_vector_mp<stl_vector_mp<uint32_t>>
         arrangement_cells{};    ///< A 3D region partitioned by the surface network; encoded by a vector of shell indices
-    stl_vector_mp<stl_vector_mp<bool>>
-        cell_function_labels{}; ///< A 2D boolean array for the signs of each pair of a function and an arrangement cell
-    // integration results
-    stl_vector_mp<double> surf_int_of_patch{};
-    stl_vector_mp<double> vol_int_of_patch{};
 };

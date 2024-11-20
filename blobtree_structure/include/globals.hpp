@@ -6,9 +6,7 @@
 #include <tbb/tbb.h>
 
 #include "blobtree.h"
-
-#include "aabb.hpp"
-#include "node_operation.hpp"
+#include "internal_structs.hpp"
 
 struct blobtree_t {
     std::vector<node_t, tbb::tbb_allocator<node_t>>     nodes{};

@@ -139,30 +139,28 @@ bool upward_propagation(blobtree_t& tree, const int leaf_node_index, const int r
 }
 
 // eNodeLocation evaluate(const virtual_node_t& node, const raw_vector3d_t& point)
-// {
-//     auto temp = structures[node.main_index];
-
-//     auto& leaf_index = temp.leaf_index;
-//     for (size_t i = 0; i < leaf_index.size(); i++) {
-//         auto sdf              = evaluate(primitives[leaf_index[i]], point);
-//         auto leaf_node_in_out = node_fetch_in_out(temp.nodes[leaf_index[i]]);
+//{
+//     auto  tree       = structures[node.main_index];
+//     auto& leaf_index = tree.leaf_index;
+//     for (auto& index : leaf_index) {
+//         auto sdf              = evaluate(primitives[node_fetch_primitive_index(tree.nodes[index])], point);
+//         auto leaf_node_in_out = node_fetch_in_out(tree.nodes[index]);
 //         if (sdf <= 0.0)
 //             leaf_node_in_out = eNodeLocation::in;
 //         else
 //             leaf_node_in_out = eNodeLocation::out;
-
-//         if (upward_propagation(temp, leaf_index[i], node.inner_index)) { break; }
+//         if (upward_propagation(tree, index, node.inner_index)) { break; }
 //     }
-
-//     return node_fetch_in_out(temp.nodes[node.inner_index]);
+//     return node_fetch_in_out(tree.nodes[node.inner_index]);
 // }
 
 aabb_t get_aabb(const virtual_node_t& node)
 {
-    auto&  leaf_index = structures[node.main_index].leaf_index;
+    auto&  tree       = structures[node.main_index];
+    auto&  leaf_index = tree.leaf_index;
     aabb_t result{};
     for (auto& index : leaf_index) {
-        auto& type = primitives[index].type;
+        auto& type = primitives[node_fetch_primitive_index(tree.nodes[index])].type;
         if (type != PRIMITIVE_TYPE_CONSTANT && type != PRIMITIVE_TYPE_PLANE) { result.extend(aabbs[index]); }
     }
     return result;

@@ -2,6 +2,7 @@
 
 #include <extract_patch.hpp>
 
+/// EDIT: swap the 1st and the 2nd indices of func_vals
 /// TODO: compress implicit function indices into uint16_t instead of uint32_t
 ISNP_API void extract_iso_mesh(uint32_t                                             num_1_func,
                                uint32_t                                             num_2_func,
@@ -134,8 +135,8 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                                 iso_vert.simplex_vertex_indices    = {vId1, vId2};
                                 iso_vert.implicit_function_indices = {implicit_pIds[0]};
 
-                                const auto f1    = func_vals[implicit_pIds[0]][vId1];
-                                const auto f2    = func_vals[implicit_pIds[0]][vId2];
+                                const auto f1    = func_vals[vId1][implicit_pIds[0]];
+                                const auto f2    = func_vals[vId2][implicit_pIds[0]];
                                 const auto coord = compute_barycentric_coords(f1, f2);
                                 iso_pts.emplace_back(coord[0] * pts[vId1] + coord[1] * pts[vId2]);
                             }
@@ -163,14 +164,14 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
 
                                 //
                                 const auto f1 = std::array{
-                                    func_vals[implicit_pIds[0]][vIds3[0]],
-                                    func_vals[implicit_pIds[0]][vIds3[1]],
-                                    func_vals[implicit_pIds[0]][vIds3[2]],
+                                    func_vals[vIds3[0]][implicit_pIds[0]],
+                                    func_vals[vIds3[1]][implicit_pIds[0]],
+                                    func_vals[vIds3[2]][implicit_pIds[0]],
                                 };
                                 const auto f2 = std::array{
-                                    func_vals[implicit_pIds[1]][vIds3[0]],
-                                    func_vals[implicit_pIds[1]][vIds3[1]],
-                                    func_vals[implicit_pIds[1]][vIds3[2]],
+                                    func_vals[vIds3[0]][implicit_pIds[1]],
+                                    func_vals[vIds3[1]][implicit_pIds[1]],
+                                    func_vals[vIds3[2]][implicit_pIds[1]],
                                 };
                                 const auto coord = compute_barycentric_coords(f1, f2);
                                 iso_pts.emplace_back(coord[0] * pts[vIds3[0]] + coord[1] * pts[vIds3[1]]
@@ -188,22 +189,22 @@ ISNP_API void extract_iso_mesh(uint32_t                                         
                             iso_vert.implicit_function_indices = implicit_pIds;
 
                             const auto f1 = std::array{
-                                func_vals[implicit_pIds[0]][tets[i][0]],
-                                func_vals[implicit_pIds[0]][tets[i][1]],
-                                func_vals[implicit_pIds[0]][tets[i][2]],
-                                func_vals[implicit_pIds[0]][tets[i][3]],
+                                func_vals[tets[i][0]][implicit_pIds[0]],
+                                func_vals[tets[i][1]][implicit_pIds[0]],
+                                func_vals[tets[i][2]][implicit_pIds[0]],
+                                func_vals[tets[i][3]][implicit_pIds[0]],
                             };
                             const auto f2 = std::array{
-                                func_vals[implicit_pIds[1]][tets[i][0]],
-                                func_vals[implicit_pIds[1]][tets[i][1]],
-                                func_vals[implicit_pIds[1]][tets[i][2]],
-                                func_vals[implicit_pIds[1]][tets[i][3]],
+                                func_vals[tets[i][0]][implicit_pIds[1]],
+                                func_vals[tets[i][1]][implicit_pIds[1]],
+                                func_vals[tets[i][2]][implicit_pIds[1]],
+                                func_vals[tets[i][3]][implicit_pIds[1]],
                             };
                             const auto f3 = std::array{
-                                func_vals[implicit_pIds[2]][tets[i][0]],
-                                func_vals[implicit_pIds[2]][tets[i][1]],
-                                func_vals[implicit_pIds[2]][tets[i][2]],
-                                func_vals[implicit_pIds[2]][tets[i][3]],
+                                func_vals[tets[i][0]][implicit_pIds[2]],
+                                func_vals[tets[i][1]][implicit_pIds[2]],
+                                func_vals[tets[i][2]][implicit_pIds[2]],
+                                func_vals[tets[i][3]][implicit_pIds[2]],
                             };
                             const auto coord = compute_barycentric_coords(f1, f2, f3);
                             iso_pts.emplace_back(coord[0] * pts[tets[i][0]] + coord[1] * pts[tets[i][1]]

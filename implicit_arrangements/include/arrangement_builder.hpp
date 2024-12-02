@@ -61,7 +61,7 @@ inline ia_complex_t init_ia_complex(uint32_t num_planes)
 class arrangement_builder
 {
 public:
-    arrangement_builder(const tbb_vector_mp<plane_t>& planes)
+    arrangement_builder(const stl_vector_mp<plane_t>& planes)
     {
         const auto  num_planes = static_cast<uint32_t>(planes.size());
         const auto* ia         = lookup(planes);
@@ -99,7 +99,7 @@ public:
     auto&& export_arrangement() && noexcept { return std::move(m_arrangement); }
 
 private:
-    const arrangement_t* lookup(const tbb_vector_mp<plane_t>& planes) const
+    const arrangement_t* lookup(const stl_vector_mp<plane_t>& planes) const
     {
         extern stl_vector_mp<arrangement_t> ia_data;
         extern stl_vector_mp<uint32_t>      ia_indices;

@@ -33,7 +33,9 @@ BPE_API double evaluate(const extrude_descriptor_t& desc, const Eigen::Ref<const
 
 // Basic Operations
 
-BPE_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes_primitive_mapping(uint32_t index) noexcept;
+BPE_API size_t blobtree_get_node_count(uint32_t index) noexcept;
+BPE_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes(uint32_t index) noexcept;
+BPE_API node_t&                                             blobtree_get_node(const virtual_node_t& node) noexcept;
 
 BPE_API size_t                  get_primitive_count() noexcept;
 BPE_API const primitive_node_t& get_primitive_node(uint32_t index) noexcept;

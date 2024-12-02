@@ -109,8 +109,11 @@ template <>
 struct hash<vertex_header_t> {
     size_t operator()(const vertex_header_t& v) const
     {
-        return std::hash<uint32_t>()(v.volume_index) ^ std::hash<uint32_t>()(v.local_vertex_index)
-               ^ std::hash<uint8_t>()(v.minimal_simplex_flag);
+        // HINT: there cannot have a vertex_header_t with same volume_index and local_vertex_index but different
+        // minimal_simplex_flag so we just ignore hashing the minimal_simplex_flag here
+        return (static_cast<size_t>(v.volume_index) << 32) | v.local_vertex_index;
+        // return std::hash<uint32_t>()(v.volume_index) ^ std::hash<uint32_t>()(v.local_vertex_index)
+        //        ^ std::hash<uint8_t>()(v.minimal_simplex_flag);
     }
 };
 
@@ -118,7 +121,8 @@ template <>
 struct hash<face_header_t> {
     size_t operator()(const face_header_t& f) const
     {
-        return std::hash<uint32_t>()(f.volume_index) ^ std::hash<uint32_t>()(f.local_face_index);
+        return (static_cast<size_t>(f.volume_index) << 32) | f.local_face_index;
+        // return std::hash<uint32_t>()(f.volume_index) ^ std::hash<uint32_t>()(f.local_face_index);
     }
 };
 
@@ -126,7 +130,8 @@ template <>
 struct hash<edge_header_t> {
     size_t operator()(const edge_header_t& e) const
     {
-        return std::hash<uint32_t>()(e.face_index) ^ std::hash<uint32_t>()(e.local_edge_index);
+        return (static_cast<size_t>(e.face_index) << 32) | e.local_edge_index;
+        // return std::hash<uint32_t>()(e.face_index) ^ std::hash<uint32_t>()(e.local_edge_index);
     }
 };
 

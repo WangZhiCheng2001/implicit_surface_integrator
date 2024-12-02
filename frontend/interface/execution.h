@@ -6,11 +6,11 @@
 #include <blobtree.h>
 
 typedef struct {
-    raw_vector3d_t* vertices;
-    uint32_t*       faces;         // indices of vertices in each face
-    uint32_t*       vertex_counts; // number of vertices in each face
-    uint32_t        num_vertices;
-    uint32_t        num_faces;
+    const raw_vector3d_t* vertices;
+    const uint32_t*       faces;         // indices of vertices in each face
+    const uint32_t*       vertex_counts; // number of vertices in each face
+    uint32_t              num_vertices;
+    uint32_t              num_faces;
 } polymesh_t;
 
 typedef struct {

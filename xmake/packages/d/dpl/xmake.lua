@@ -17,15 +17,15 @@ package("dpl")
     on_load("windows", "linux", function (package)
         local backend = package:config("backend")
         if backend == "tbb"  then
-            package:add("deps", "tbb")
+            package:add("deps", "tbb_local")
 	        package:add("defines", "ONEDPL_USE_TBB_BACKEND=1")
-            package:add("ldflags", "-ltbb")
+            -- package:add("ldflags", "-ltbb")
         elseif backend == "omp" then
             package:add("deps", "openmp")
 	        package:add("defines", "ONEDPL_USE_OPENMP_BACKEND=1")
 	    elseif backend == "dpcpp" then
-	        package:add("deps", "tbb")
-            package:add("ldflags", "-ltbb")
+	        package:add("deps", "tbb_local")
+            -- package:add("ldflags", "-ltbb")
             package:add("defines", "ONEDPL_USE_TBB_BACKEND=1")
 	        package:add("defines", "ONEDPL_USE_DPCPP_BACKEND=1")
         elseif backend == "dpcpp_only" then

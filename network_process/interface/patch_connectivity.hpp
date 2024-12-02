@@ -1,7 +1,5 @@
 #pragma once
 
-#include <container/dynamic_bitset.hpp>
-
 #include <utils/fwd_types.hpp>
 
 /// Compute iso-edges and edge-face connectivity
@@ -23,12 +21,10 @@ ISNP_API void compute_patch_edges(const stl_vector_mp<polygon_face_t>&    patch_
 ///
 ///
 /// @param[out] patches           output - the list of patches which contain a list of faces' indices.
-/// @param[out] patch_function_label             output - the list of patch to implicit funciton label.
 ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edges_of_face,
                               const stl_vector_mp<iso_edge_t>&              patch_edges,
                               const stl_vector_mp<polygon_face_t>&          patch_faces,
                               stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
-                              stl_vector_mp<uint32_t>&                      patch_function_label,
                               stl_vector_mp<uint32_t>&                      patch_of_face_mapping);
 
 /// this should be correct, so we won't implement it for now.
@@ -60,17 +56,15 @@ ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch
 /// each component is a list of patches
 /// we also build maps: half-patch --> shell,  patch --> component
 /// @param[in] half_patch_adj_list    The adjacency list of half-patches
-/// @param[in] patch_func_signs  The function signs' array of half-patches
 ///
 /// @param[out] shell_of_patch          Map: half-patch --> shell
 /// @param[out] component           Connected componeent represented as a list of patches
 /// @param[out] component_of_patch          Map: patch --> component
-ISNP_API void compute_shells_and_components(const stl_vector_mp<small_vector_mp<uint32_t>>& half_patch_adj_list,
-                                            const stl_vector_mp<dynamic_bitset_mp<>>&       patch_func_signs,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         shells,
-                                            stl_vector_mp<uint32_t>&                        shell_of_half_patch,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         components,
-                                            stl_vector_mp<uint32_t>&                        component_of_patch);
+ISNP_API void compute_shells_and_components(const stl_vector_mp<stl_vector_mp<uint32_t>>& half_patch_adj_list,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&       shells,
+                                            stl_vector_mp<uint32_t>&                      shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&       components,
+                                            stl_vector_mp<uint32_t>&                      component_of_patch);
 
 /// group shells into arrangement cells
 ///
@@ -81,22 +75,3 @@ ISNP_API void compute_shells_and_components(const stl_vector_mp<small_vector_mp<
 ISNP_API void compute_arrangement_cells(uint32_t                                            num_shell,
                                         const stl_vector_mp<std::pair<uint32_t, uint32_t>>& shell_links,
                                         stl_vector_mp<stl_vector_mp<uint32_t>>&             arrangement_cells);
-
-/// Propagate the function labels of patches to cells.
-///
-///@param[in] arrangement_cells         Cells; each cell is a list of shells
-///@param[in] shell_of_half_patch           Map: half patch --> shell
-///@param[in] shells            Shells; each shell is a list of half patches;
-///@param[in] patch_function_label          Map: patch index --> function index
-///@param[in] n_func            The number of functions
-///@param[in] sample_function_label         A sampled set of function labels at the first point in the grid: used to generate a
-/// sign for functions that do not appear on any of the patches.
-///
-///@return a 2D vector of `bool` of values `true` and `false` for each cell and for each function; `true` at index `i` and `j`
-/// represents the cell `i` is inside of the implicit shape of the function `j`, and vice versa.
-ISNP_API stl_vector_mp<stl_vector_mp<bool>> sign_propagation(const stl_vector_mp<stl_vector_mp<uint32_t>>& arrangement_cells,
-                                                             const stl_vector_mp<uint32_t>&                shell_of_half_patch,
-                                                             const stl_vector_mp<stl_vector_mp<uint32_t>>& shells,
-                                                             const stl_vector_mp<uint32_t>&                patch_function_label,
-                                                             uint32_t                                      n_func,
-                                                             const stl_vector_mp<bool>& sample_function_label);

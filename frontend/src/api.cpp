@@ -4,7 +4,7 @@
 #include "environment.h"
 #include "execution.h"
 
-setting_descriptor g_settings{};
+setting_descriptor g_settings{99, 1e-5};
 
 EXTERN_C API void update_setting(const setting_descriptor desc)
 {
@@ -12,12 +12,9 @@ EXTERN_C API void update_setting(const setting_descriptor desc)
     load_lut();
 }
 
-EXTERN_C API void update_environment()
-{
-    g_integrator.update_background_mesh(-Eigen::Vector3d::Ones(), Eigen::Vector3d::Ones());
-}
+EXTERN_C API void update_environment(const virtual_node_t* tree_node) { g_processor.preinit(*tree_node); }
 
-EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node) { return g_integrator.run(*tree_node); }
+EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node) { return g_processor.run(*tree_node); }
 
 EXTERN_C API void clear_statistics() { g_timers_manager.clear(); }
 

@@ -8,4 +8,4 @@
 /* global singleton */
 extern setting_descriptor              g_settings;
 extern labelled_timers_manager         g_timers_manager;
-extern ImplicitSurfaceNetworkProcessor g_integrator;
+extern ImplicitSurfaceNetworkProcessor g_processor;

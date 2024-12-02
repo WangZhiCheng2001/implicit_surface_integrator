@@ -8,9 +8,13 @@ std::pair<double, double> PatchIntegrator::integrate(const stl_vector_mp<raw_poi
 
     Eigen::Vector3d temp_area_vector{};
     for (const auto& face_id : face_of_patch_mapping) {
-        const auto&     face       = faces[face_id];
-        const auto&     vertex_ids = face.vertex_indices;
-        const auto&     v0         = vertices[vertex_ids[0]];
+        const auto& face       = faces[face_id];
+        const auto& vertex_ids = face.vertex_indices;
+
+        // not a polygon face, skip it
+        if (vertex_ids.size() < 3) continue;
+
+        const auto&     v0 = vertices[vertex_ids[0]];
         Eigen::Vector3d area_vector_sum{};
         for (auto iter = vertex_ids.begin() + 2; iter != vertex_ids.end(); ++iter) {
             const auto &v1 = vertices[*(iter - 1)], v2 = vertices[*iter];

@@ -103,6 +103,7 @@ reference/*
 # Xmake
 .xmake/*
 build/*
+distribute/*
 
 /.vs
 

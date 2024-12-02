@@ -38,9 +38,12 @@ public:
     void clear() { m_timer_statistics.clear(); }
 
     void print() const{
+        double total_time{};
         for (const auto& [label, stats] : m_timer_statistics) {
+            total_time += stats.elapsed_time / stats.count;
             std::cout << label << ": " << stats.elapsed_time / stats.count << "s" << std::endl;
         }
+        std::cout << "Total time: " << total_time << "s" << std::endl;
     }
 
     void push_timer(const char* label) { m_label_stack.emplace(label); }

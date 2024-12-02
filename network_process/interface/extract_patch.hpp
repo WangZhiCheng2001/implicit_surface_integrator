@@ -23,7 +23,7 @@ ISNP_API void compute_iso_face_key(const stl_vector_mp<uint32_t>& face_verts, po
 // compute barycentric coordinate of Point (intersection of three planes)
 // Point in tet cell
 template <typename Scalar>
-inline std::array<Scalar, 4>& compute_barycentric_coords(const std::array<Scalar, 4>& plane1,
+inline std::array<Scalar, 4> compute_barycentric_coords(const std::array<Scalar, 4>& plane1,
                                                          const std::array<Scalar, 4>& plane2,
                                                          const std::array<Scalar, 4>& plane3)
 {
@@ -46,7 +46,7 @@ inline std::array<Scalar, 4>& compute_barycentric_coords(const std::array<Scalar
 
 // Point on tet face
 template <typename Scalar>
-inline std::array<Scalar, 3>& compute_barycentric_coords(const std::array<Scalar, 3>& plane1,
+inline std::array<Scalar, 3> compute_barycentric_coords(const std::array<Scalar, 3>& plane1,
                                                          const std::array<Scalar, 3>& plane2)
 {
     Scalar n1 = plane1[2] * plane2[1] - plane1[1] * plane2[2];
@@ -59,7 +59,7 @@ inline std::array<Scalar, 3>& compute_barycentric_coords(const std::array<Scalar
 
 // Point on tet edge
 template <typename Scalar>
-inline std::array<Scalar, 2>& compute_barycentric_coords(Scalar f1, Scalar f2)
+inline std::array<Scalar, 2> compute_barycentric_coords(Scalar f1, Scalar f2)
 {
     return {f2 / (f2 - f1), -f1 / (f2 - f1)};
 }

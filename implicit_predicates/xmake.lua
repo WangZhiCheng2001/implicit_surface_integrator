@@ -1,11 +1,3 @@
--- target("implicit_predicates")
---     add_rules("library.shared")
---     add_rules("config.indirect_predicates.flags")
---     add_deps("indirect_predicates", "shared_module")
---     add_includedirs("include", {public = true})
---     add_files("src/main.cpp")
--- target_end()
-
-internal_library("implicit_predicates", "IP")
+internal_library("implicit_predicates", "IP", os.scriptdir())
     add_rules("config.indirect_predicates.flags")
     add_deps("indirect_predicates", "shared_module")

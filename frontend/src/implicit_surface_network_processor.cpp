@@ -6,168 +6,214 @@
 #include <pair_faces.hpp>
 #include <topology_ray_shooting.hpp>
 
+#include <globals.hpp>
 #include <internal_api.hpp>
 
 #include <implicit_surface_network_processor.hpp>
+#include "Eigen/src/Core/Matrix.h"
 
 ImplicitSurfaceNetworkProcessor g_processor{};
 
-void ImplicitSurfaceNetworkProcessor::update_background_mesh(const Eigen::Ref<const raw_point_t>& aabb_min,
-                                                             const Eigen::Ref<const raw_point_t>& aabb_max) noexcept
+void ImplicitSurfaceNetworkProcessor::preinit(const virtual_node_t& tree_node) noexcept
 {
-    this->background_mesh_manager.generate(aabb_min, aabb_max);
+    auto           leaf_indices = blobtree_get_leaf_nodes(tree_node.main_index);
+    virtual_node_t pointer      = tree_node;
+
+    // 1. merge aabbs
+    // 2. build mapping: primitive index -> leaf node index
+    aabb_t scene_aabb{};
+    leaf_index_of_primitive.resize(get_primitive_count());
+    for (const auto& leaf_index : leaf_indices) {
+        pointer.inner_index                      = leaf_index;
+        const uint32_t primitive_index           = node_fetch_primitive_index(blobtree_get_node(pointer));
+        leaf_index_of_primitive[primitive_index] = leaf_index;
+
+        const auto& type = get_primitive_node(primitive_index).type;
+        if (type != PRIMITIVE_TYPE_CONSTANT && type != PRIMITIVE_TYPE_PLANE) scene_aabb.extend(get_aabb(primitive_index));
+    }
+
+    // update background mesh using scene aabb
+    // EDIT: scene aabb with a little margin
+    this->background_mesh_manager.generate(scene_aabb.min - g_settings.scene_aabb_margin * Eigen::Vector3d::Ones(),
+                                           scene_aabb.max + g_settings.scene_aabb_margin * Eigen::Vector3d::Ones());
 }
 
 void ImplicitSurfaceNetworkProcessor::clear() noexcept
 {
     iso_vertices.clear();
-    iso_faces.clear();
-    patches.clear();
-    patch_function_labels.clear();
-    iso_edges.clear();
-    non_manifold_edges_of_vert.clear();
-    shells.clear();
-    arrangement_cells.clear();
-    cell_function_labels.clear();
-    surf_int_of_patch.clear();
-    vol_int_of_patch.clear();
+    polygon_faces.clear();
+    vertex_counts_of_face.clear();
 }
 
-bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manager) noexcept
+solve_result_t ImplicitSurfaceNetworkProcessor::run(const virtual_node_t& tree_node) noexcept
 {
     const auto& background_vertices = background_mesh_manager.get_vertices();
     const auto& background_indices  = background_mesh_manager.get_indices();
     if (background_vertices.empty() || background_indices.empty()) {
         std::cout << "Current network processor is runned before initialized!" << std::endl;
-        return false;
+        return {};
     }
 
-    const auto  num_vert   = background_vertices.size();
-    const auto  num_tets   = background_indices.size();
-    const auto& primitives = get_primitives();
-    const auto  num_funcs  = primitives.size();
+    const auto num_vert  = background_vertices.size();
+    const auto num_tets  = background_indices.size();
+    const auto num_funcs = get_primitive_count();
 
-    // composed initialization stage:
-    // 1. compute function signs at vertices
-    // 2. filter active functions in each tetrahedron
-    // 3. compute arrangement in each tet (skip robust test)
-    // 4. compute incident tets for degenerate vertices
-    // CAUTION: during process, always keep positive signs as inside (sdf), and this is reversed as usual
-    // stl_vector_mp<bool>                           sample_function_label(num_funcs, false);
-    stl_vector_mp<stl_vector_mp<double>>          vertex_scalar_values(num_vert, stl_vector_mp<double>(num_funcs));
-    stl_vector_mp<uint32_t>                       active_functions_in_tet{}; // active function indices in CRS vector format
-    stl_vector_mp<uint32_t>                       start_index_of_tet{};
-    stl_vector_mp<std::shared_ptr<arrangement_t>> cut_results(num_tets);
-    std::atomic_uint32_t                          num_1_func{};
-    std::atomic_uint32_t                          num_2_func{};
-    std::atomic_uint32_t                          num_more_func{};
-    parallel_flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> incident_tets{};
+    // temporary geometry results
+    stl_vector_mp<polygon_face_t>          iso_faces{}; ///< Polygonal faces at the surface network mesh
+    stl_vector_mp<stl_vector_mp<uint32_t>> patches{};   ///< A connected component of faces bounded by non-manifold edges
+    stl_vector_mp<iso_edge_t>              iso_edges{}; ///< Edges at the surface network mesh
+    stl_vector_mp<stl_vector_mp<uint32_t>> chains{};    ///< Chains of non-manifold edges
+    stl_vector_mp<stl_vector_mp<uint32_t>> non_manifold_edges_of_vert{}; ///< Indices of non-manifold vertices
+    stl_vector_mp<stl_vector_mp<uint32_t>>
+        shells{}; ///< An array of shells. Each shell is a connected component consist of patches. Even patch index, 2*i,
+                  ///< indicates patch i is consistently oriented with the shell. Odd patch index, 2*i+1, indicates patch i has
+                  ///< opposite orientation with respect to the shell.
+    stl_vector_mp<stl_vector_mp<uint32_t>>
+        arrangement_cells{}; ///< A 3D region partitioned by the surface network; encoded by a vector of shell indices
+
+    // compute function signs at vertices
+    // EDIT: we only need to identify the sdf value is inside or on surface/outside
+    // Eigen::Matrix<int8_t, Eigen::Dynamic, Eigen::Dynamic> scalar_field_signs(num_funcs, num_vert);
+    auto scalar_field_sign = [](double x) -> int8_t { return (x < 0) ? 1 : ((x > 0) ? -1 : 0); };
+    stl_vector_mp<stl_vector_mp<double>> vertex_scalar_values(num_vert, stl_vector_mp<double>(num_funcs));
+    stl_vector_mp<bool>                  is_positive_scalar_field_sign(num_funcs * num_vert, false);
+    stl_vector_mp<bool>                  is_negative_scalar_field_sign(num_funcs * num_vert, false);
+    stl_vector_mp<bool>                  is_degenerate_vertex(num_vert, false);
+    bool                                 has_degenerate_vertex{};
     {
-        struct vertex_info_t {
-            // iff conmpact, then we should have 4 bits for each function sign, that is 1 bit for positive and negative
-            // and other 3 bits for counter (at most -+4 for every sign)
-            // as a simplified version, we use int8_t for now
-            // iff needed to use compact version, we may implement packed_int4_2_t
-            stl_vector_mp<int8_t> signs{};
-        };
+        g_timers_manager.push_timer("identify sdf signs");
+        for (uint32_t i = 0; i < num_vert; ++i) {
+            const auto& point = background_vertices[i];
+            for (uint32_t j = 0; j < num_funcs; ++j) {
+                const auto& primitive = get_primitive_node(static_cast<uint32_t>(j));
+                switch (primitive.type) {
+                    case PRIMITIVE_TYPE_CONSTANT:
+                        vertex_scalar_values[i][j] = evaluate(*(const constant_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_PLANE:
+                        vertex_scalar_values[i][j] = evaluate(*(const plane_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_SPHERE:
+                        vertex_scalar_values[i][j] = evaluate(*(const sphere_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_CYLINDER:
+                        vertex_scalar_values[i][j] = evaluate(*(const cylinder_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_CONE:
+                        vertex_scalar_values[i][j] = evaluate(*(const cone_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_BOX:
+                        vertex_scalar_values[i][j] = evaluate(*(const box_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_MESH:
+                        vertex_scalar_values[i][j] = evaluate(*(const mesh_descriptor_t*)primitive.desc, point);
+                        break;
+                    case PRIMITIVE_TYPE_EXTRUDE:
+                        vertex_scalar_values[i][j] = evaluate(*(const extrude_descriptor_t*)primitive.desc, point);
+                        break;
+                }
 
-        stl_vector_mp<vertex_info_t>  vertex_info(num_vert, vertex_info_t{stl_vector_mp<int8_t>(num_funcs)});
-        stl_vector_mp<std::once_flag> vertex_sign_constructed(num_vert);
-        active_functions_in_tet.resize(num_tets * num_funcs);
-        start_index_of_tet.resize(num_tets + 1, 0);
-        std::atomic_uint32_t curr_active_func_index{0};
-
-        auto evaluate_func = [&](auto index, const raw_point_t& point) {
-            switch (primitives[index].type) {
-                case PRIMITIVE_TYPE_CONSTANT: return evaluate(*(const constant_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_PLANE:    return evaluate(*(const plane_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_SPHERE:   return evaluate(*(const sphere_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_CYLINDER: return evaluate(*(const cylinder_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_CONE:     return evaluate(*(const cone_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_BOX:      return evaluate(*(const box_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_MESH:     return evaluate(*(const mesh_descriptor_t*)primitives[index].desc, point);
-                case PRIMITIVE_TYPE_EXTRUDE:  return evaluate(*(const extrude_descriptor_t*)primitives[index].desc, point);
+                const auto sign = scalar_field_sign(vertex_scalar_values[i][j]);
+                switch (sign) {
+                    case -1: is_negative_scalar_field_sign[i * num_funcs + j] = true; break;
+                    case 0:
+                        is_degenerate_vertex[i] = true;
+                        has_degenerate_vertex   = true;
+                        break;
+                    case 1:  is_positive_scalar_field_sign[i * num_funcs + j] = true; break;
+                    default: break;
+                }
             }
-        };
+        }
+        g_timers_manager.pop_timer("identify sdf signs");
+    }
 
-        // auto scalar_field_sign       = [](double x) -> int8_t { return (x > 0) ? 1 : ((x < 0) ? -1 : 0); };
-        auto scalar_field_sign       = [](double x) -> int8_t { return (x < 0) ? 1 : ((x > 0) ? -1 : 0); };
-        auto get_or_init_vertex_info = [&, this](uint32_t vert_index, uint32_t tet_index) {
-            std::call_once(vertex_sign_constructed[vert_index], [&, this] {
-                const auto& vertex        = background_vertices[vert_index];
-                auto&       scalar_values = vertex_scalar_values[vert_index];
-                for (Eigen::Index i = 0; i < num_funcs; ++i) {
-                    scalar_values[i]                 = evaluate_func(i, vertex);
-                    vertex_info[vert_index].signs[i] = scalar_field_sign(scalar_values[i]);
-                    if (vertex_info[vert_index].signs[i] == 0) {
-                        incident_tets.lazy_emplace_l(
-                            vert_index,
-                            [&](decltype(incident_tets)::value_type& value) { value.second.emplace_back(tet_index); },
-                            [&](const decltype(incident_tets)::constructor& ctor) {
-                                ctor(vert_index, stl_vector_mp<uint32_t>{tet_index});
-                            });
-                    }
+    // filter active functions in each tetrahedron
+    // TODO: optimize this part by using SIMD and ranges::filter
+    uint32_t                num_intersecting_tet = 0;
+    stl_vector_mp<uint32_t> active_functions_in_tet{}; // active function indices in CRS vector format
+    stl_vector_mp<uint32_t> start_index_of_tet{};
+    {
+        g_timers_manager.push_timer("filter active functions");
+        active_functions_in_tet.reserve(num_tets);
+        start_index_of_tet.reserve(num_tets + 1);
+        start_index_of_tet.emplace_back(0);
+        for (Eigen::Index i = 0; i < num_tets; ++i) {
+            for (Eigen::Index j = 0; j < num_funcs; ++j) {
+                uint32_t pos_count{}, neg_count{};
+                for (uint32_t k = 0; k < 4; ++k) {
+                    if (is_positive_scalar_field_sign[background_indices[i][k] * num_funcs + j]) pos_count++;
+                    if (is_negative_scalar_field_sign[background_indices[i][k] * num_funcs + j]) neg_count++;
                 }
-            });
+                // if (scalar_field_signs(j, tet_ptr[k]) == 1) pos_count++;
+                // tets[i].size() == 4, this means that the function is active in this tet
+                if (pos_count < 4 && neg_count < 4) active_functions_in_tet.emplace_back(j);
+            }
+            if (active_functions_in_tet.size() > start_index_of_tet.back()) { ++num_intersecting_tet; }
+            start_index_of_tet.emplace_back(static_cast<uint32_t>(active_functions_in_tet.size()));
+        }
+        g_timers_manager.pop_timer("filter active functions");
+    }
 
-            return std::make_tuple(&vertex_info[vert_index], &vertex_scalar_values[vert_index]);
-        };
+    // compute arrangement in each tet
+    // HINT: we skip robust test for this part for now
+    stl_vector_mp<std::shared_ptr<arrangement_t>> cut_results{};
+    uint32_t                                      num_1_func    = 0;
+    uint32_t                                      num_2_func    = 0;
+    uint32_t                                      num_more_func = 0;
+    {
+        // g_timers_manager.push_timer("implicit arrangements calculation in total");
+        cut_results.reserve(num_intersecting_tet);
+        stl_vector_mp<plane_t> planes{};
+        planes.reserve(3);
 
-        timers_manager.push_timer("composed init");
-
-        tbb::parallel_for(size_t{0}, num_tets, [&](size_t i) {
-            tbb_vector_mp<plane_t> planes{};
-            planes.reserve(3);
-
-            const auto& indices = background_indices[i];
-            const auto& v0      = get_or_init_vertex_info(indices[0], i);
-            const auto& v1      = get_or_init_vertex_info(indices[1], i);
-            const auto& v2      = get_or_init_vertex_info(indices[2], i);
-            const auto& v3      = get_or_init_vertex_info(indices[3], i);
-            const auto& vi0     = *std::get<0>(v0);
-            const auto& vi1     = *std::get<0>(v1);
-            const auto& vi2     = *std::get<0>(v2);
-            const auto& vi3     = *std::get<0>(v3);
-            const auto& vs0     = *std::get<1>(v0);
-            const auto& vs1     = *std::get<1>(v1);
-            const auto& vs2     = *std::get<1>(v2);
-            const auto& vs3     = *std::get<1>(v3);
-
-            start_index_of_tet[i + 1] = static_cast<uint32_t>(curr_active_func_index.load(std::memory_order_acquire));
-            auto& index               = start_index_of_tet[i + 1];
-            algorithm::for_loop<algorithm::ExecutionPolicySelector::simd_only>(size_t{0}, num_funcs, [&](size_t j) {
-                if (auto sign = vi0.signs[j] + vi1.signs[j] + vi2.signs[j] + vi3.signs[j]; -4 < sign && sign < 4) {
-                    index                              = curr_active_func_index.fetch_add(1, std::memory_order_acq_rel) + 1;
-                    active_functions_in_tet[index - 1] = static_cast<uint32_t>(j);
-                    planes.emplace_back(plane_t{-vs0[j], -vs1[j], -vs2[j], -vs3[j]});
-                }
-            });
-
-            switch (planes.size()) {
-                case 0: break;
+        for (uint32_t i = 0; i < num_tets; ++i) {
+            const auto start_index              = start_index_of_tet[i];
+            const auto active_funcs_in_curr_tet = start_index_of_tet[i + 1] - start_index;
+            if (active_funcs_in_curr_tet == 0) {
+                cut_results.emplace_back(nullptr);
+                continue;
+            }
+            g_timers_manager.push_timer(active_funcs_in_curr_tet == 1
+                                            ? "implicit arrangements calculation (1 func)"
+                                            : (active_funcs_in_curr_tet == 2
+                                                   ? "implicit arrangments calculation (2 funcs)"
+                                                   : "implicit arrangements calculation (>= 3 funcs)"));
+            const auto& tet = background_indices[i];
+            planes.clear();
+            for (uint32_t j = 0; j < active_funcs_in_curr_tet; ++j) {
+                const auto fid = active_functions_in_tet[start_index + j];
+                planes.emplace_back(plane_t{-vertex_scalar_values[tet[0]][fid],
+                                            -vertex_scalar_values[tet[1]][fid],
+                                            -vertex_scalar_values[tet[2]][fid],
+                                            -vertex_scalar_values[tet[3]][fid]});
+            }
+            cut_results.emplace_back(std::make_shared<arrangement_t>(std::move(compute_arrangement(planes))));
+            switch (active_funcs_in_curr_tet) {
                 case 1:
-                    num_1_func++;
-                    cut_results[i] = std::make_shared<arrangement_t>(std::move(compute_arrangement(planes)));
+                    g_timers_manager.pop_timer("implicit arrangements calculation (1 func)");
+                    ++num_1_func;
                     break;
                 case 2:
-                    num_2_func++;
-                    cut_results[i] = std::make_shared<arrangement_t>(std::move(compute_arrangement(planes)));
+                    g_timers_manager.pop_timer("implicit arrangments calculation (2 funcs)");
+                    ++num_2_func;
                     break;
                 default:
-                    num_more_func++;
-                    cut_results[i] = std::make_shared<arrangement_t>(std::move(compute_arrangement(planes)));
+                    g_timers_manager.pop_timer("implicit arrangements calculation (>= 3 funcs)");
+                    ++num_more_func;
                     break;
             }
-        });
-
-        timers_manager.pop_timer("composed init");
+        }
+        // g_timers_manager.pop_timer("implicit arrangements calculation in total");
     }
 
     // extract arrangement mesh: combining results from all tets to produce a mesh
     // compute xyz coordinates of iso-vertices on the fly
+    // HINT: vertices of faces are always oriented counterclockwise from the view of the positive side of the supporting plane
+    // but since the sign is reversed, so that every face is always oriented clockwise when viewing outside
     stl_vector_mp<iso_vertex_t> iso_verts{};
     {
-        timers_manager.push_timer("extract arrangement & iso mesh");
+        g_timers_manager.push_timer("extract arrangement & iso mesh");
         extract_iso_mesh(num_1_func,
                          num_2_func,
                          num_more_func,
@@ -179,28 +225,31 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                          iso_vertices,
                          iso_verts,
                          iso_faces);
-        timers_manager.pop_timer("extract arrangement & iso mesh");
+        g_timers_manager.pop_timer("extract arrangement & iso mesh");
     }
 
     //  compute iso-edges and edge-face connectivity
     stl_vector_mp<stl_vector_mp<uint32_t>> edges_of_iso_face{};
     {
-        timers_manager.push_timer("compute iso-edge and edge-face connectivity");
+        g_timers_manager.push_timer("compute iso-edge and edge-face connectivity");
         compute_patch_edges(iso_faces, edges_of_iso_face, iso_edges);
-        timers_manager.pop_timer("compute iso-edge and edge-face connectivity");
+        g_timers_manager.pop_timer("compute iso-edge and edge-face connectivity");
     }
 
     // group iso-faces into patches
     // compute map: iso-face Id --> patch Id
     stl_vector_mp<uint32_t> patch_of_face(iso_faces.size());
     {
-        timers_manager.push_timer("group iso-faces into patches");
-        compute_patches(edges_of_iso_face, iso_edges, iso_faces, patches, patch_function_labels, patch_of_face);
-        timers_manager.pop_timer("group iso-faces into patches");
+        g_timers_manager.push_timer("group iso-faces into patches");
+        compute_patches(edges_of_iso_face, iso_edges, iso_faces, patches, patch_of_face);
+        g_timers_manager.pop_timer("group iso-faces into patches");
     }
 
+    // compute surface and volume integrals of patches
+    stl_vector_mp<double> surf_int_of_patch{};
+    stl_vector_mp<double> vol_int_of_patch{};
     {
-        timers_manager.push_timer("compute surface and volume integrals of patches");
+        g_timers_manager.push_timer("compute surface and volume integrals of patches");
         surf_int_of_patch.reserve(patches.size());
         vol_int_of_patch.reserve(patches.size());
         for (const auto& face_of_patch_mapping : patches) {
@@ -208,12 +257,12 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
             surf_int_of_patch.emplace_back(std::move(surf_int));
             vol_int_of_patch.emplace_back(std::move(vol_int));
         }
-        timers_manager.pop_timer("compute surface and volume integrals of patches");
+        g_timers_manager.pop_timer("compute surface and volume integrals of patches");
     }
 
     // group non-manifold iso-edges into chains
     {
-        timers_manager.push_timer("group non-manifold iso-edges into chains");
+        g_timers_manager.push_timer("group non-manifold iso-edges into chains");
         non_manifold_edges_of_vert.resize(iso_verts.size());
         // get incident non-manifold edges for iso-vertices
         for (uint32_t i = 0; i < iso_edges.size(); i++) {
@@ -227,19 +276,32 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
         }
         // group non-manifold iso-edges into chains
         compute_chains(iso_edges, non_manifold_edges_of_vert, chains);
-        timers_manager.pop_timer("group non-manifold iso-edges into chains");
+        g_timers_manager.pop_timer("group non-manifold iso-edges into chains");
+    }
+
+    // compute incident tets for degenerate vertices
+    flat_hash_map_mp<uint32_t, stl_vector_mp<uint32_t>> incident_tets{};
+    {
+        g_timers_manager.push_timer("compute incident tets for degenerate vertices");
+        if (has_degenerate_vertex) {
+            for (uint32_t i = 0; i < num_tets; ++i) {
+                for (uint32_t j = 0; j < 4; ++j) {
+                    if (is_degenerate_vertex[background_indices[i][j]]) {
+                        incident_tets[background_indices[i][j]].emplace_back(i);
+                    }
+                }
+            }
+        }
+        g_timers_manager.pop_timer("compute incident tets for degenerate vertices");
     }
 
     // compute order of patches around chains
     // (patch i, 1) <--> 2i,  (patch i, -1) <--> 2i+1
     // compute half-patch adjacency list
     // stl_vector_mp<stl_vector_mp<half_patch_pair_t>> half_patch_pair_list{};
-    stl_vector_mp<small_vector_mp<uint32_t>> half_patch_adj_list(2 * patches.size());
-    // HINT: always keep positive sign inside
-    stl_vector_mp<dynamic_bitset_mp<>>       patch_func_signs(2 * patches.size(), dynamic_bitset_mp<>(num_funcs, false));
-    for (uint32_t i = 0; i < num_funcs; ++i) patch_func_signs[i][i] = true;
+    stl_vector_mp<stl_vector_mp<uint32_t>> half_patch_adj_list(2 * patches.size());
     {
-        timers_manager.push_timer("compute order of patches around chains");
+        g_timers_manager.push_timer("compute order of patches around chains");
         // half_patch_pair_list.resize(chains.size());
         // order iso-faces incident to each representative iso-edge
         for (uint32_t i = 0; i < chains.size(); i++) {
@@ -255,11 +317,10 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                                 start_index_of_tet,
                                 incident_tets,
                                 patch_of_face,
-                                half_patch_adj_list,
-                                patch_func_signs);
+                                half_patch_adj_list);
             // half_patch_pair_list[i]);
         }
-        timers_manager.pop_timer("compute order of patches around chains");
+        g_timers_manager.pop_timer("compute order of patches around chains");
     }
 
     // group patches into shells and components
@@ -269,28 +330,48 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
     stl_vector_mp<stl_vector_mp<uint32_t>> components{};
     stl_vector_mp<uint32_t>                component_of_patch{};
     {
-        timers_manager.push_timer("group patches into shells and components");
-        compute_shells_and_components(half_patch_adj_list,
-                                      patch_func_signs,
-                                      shells,
-                                      shell_of_half_patch,
-                                      components,
-                                      component_of_patch);
-        timers_manager.pop_timer("group patches into shells and components");
+        g_timers_manager.push_timer("group patches into shells and components");
+        compute_shells_and_components(half_patch_adj_list, shells, shell_of_half_patch, components, component_of_patch);
+        g_timers_manager.pop_timer("group patches into shells and components");
     }
 
     // resolve nesting order, compute arrangement cells
     // an arrangement cell is represented by a list of bounding shells
+    // get solve result by propagation
+    solve_result_t result{};
     {
-        timers_manager.push_timer("compute arrangement cells");
-        if (components.size() < 2) { // no nesting problem, each shell is an arrangement cell
-            arrangement_cells.reserve(shells.size());
-            for (uint32_t i = 0; i < shells.size(); ++i) {
-                arrangement_cells.emplace_back(1);
-                arrangement_cells.back()[0] = i;
+        g_timers_manager.push_timer("compute arrangement cells");
+        if (components.size() == 1) { // no nesting problem, each shell is an arrangement cell
+            {
+                // only the -1 side shell is a valid arrangement cell
+                auto& shells = arrangement_cells.emplace_back(1);
+                shells.emplace_back(1);
+                // arrangement_cells.reserve(shells.size());
+                // for (uint32_t i = 0; i < shells.size(); ++i) {
+                //     arrangement_cells.emplace_back(1);
+                //     arrangement_cells.back()[0] = i;
+                // }
             }
+            result.mesh.vertices     = reinterpret_cast<const raw_vector3d_t*>(iso_vertices.data());
+            result.mesh.num_vertices = static_cast<uint32_t>(iso_vertices.size());
+            for (const auto& half_patch : shells[1]) {
+                result.surf_int_result += surf_int_of_patch[half_patch / 2];
+                result.vol_int_result  += -vol_int_of_patch[half_patch / 2];
+                for (const auto& face_id : patches[half_patch / 2]) {
+                    const auto& face = iso_faces[face_id];
+                    polygon_faces.insert(polygon_faces.end(),
+                                         std::make_move_iterator(polygon_faces.begin()),
+                                         std::make_move_iterator(polygon_faces.end()));
+                    vertex_counts_of_face.emplace_back(face.vertex_indices.size());
+                }
+            }
+            result.mesh.faces         = polygon_faces.data();
+            result.mesh.num_faces     = static_cast<uint32_t>(polygon_faces.size());
+            result.mesh.vertex_counts = vertex_counts_of_face.data();
         } else { // resolve nesting order
-            timers_manager.push_timer("arrangement cells: topo ray shooting");
+            g_timers_manager.push_timer("arrangement cells: topo ray shooting");
+
+            stl_vector_mp<std::pair<uint32_t, uint32_t>> shell_links{};
             topo_ray_shooting(background_mesh_manager.identity(),
                               cut_results,
                               iso_verts,
@@ -301,21 +382,34 @@ bool ImplicitSurfaceNetworkProcessor::run(labelled_timers_manager& timers_manage
                               shell_of_half_patch,
                               components,
                               component_of_patch,
-                              arrangement_cells);
-            timers_manager.pop_timer("arrangement cells: topo ray shooting");
+                              shell_links);
+
+            g_timers_manager.pop_timer("arrangement cells: topo ray shooting");
+
+            // group shells into arrangement cells
+            g_timers_manager.push_timer("arrangement cells: group shells");
+            compute_arrangement_cells(static_cast<uint32_t>(shells.size()), shell_links, arrangement_cells);
+            g_timers_manager.pop_timer("arrangement cells: group shells");
+
+            // propagate solve result
+            g_timers_manager.push_timer("arrangement cells: propagate solve result");
+            result = std::move(patch_propagator.execute(tree_node,
+                                                        leaf_index_of_primitive,
+                                                        iso_vertices,
+                                                        iso_faces,
+                                                        patches,
+                                                        surf_int_of_patch,
+                                                        vol_int_of_patch,
+                                                        arrangement_cells,
+                                                        shell_of_half_patch,
+                                                        shells,
+                                                        polygon_faces,
+                                                        vertex_counts_of_face));
+            g_timers_manager.pop_timer("arrangement cells: propagate solve result");
         }
-        timers_manager.pop_timer("compute arrangement cells");
+        g_timers_manager.pop_timer("compute arrangement cells");
     }
 
-    // fetching function labels (True, False) for each cell
-    // stl_vector_mp<bool> sample_function_label(is_positive_scalar_field_sign.begin(),
-    //                                           is_positive_scalar_field_sign.begin() + num_funcs + 1);
-    // cell_function_labels = sign_propagation(arrangement_cells,
-    //                                         shell_of_half_patch,
-    //                                         shells,
-    //                                         patch_function_labels,
-    //                                         num_funcs,
-    //                                         sample_function_label);
-
-    return true;
+    result.success = true;
+    return result;
 }

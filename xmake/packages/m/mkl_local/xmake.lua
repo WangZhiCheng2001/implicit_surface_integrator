@@ -26,7 +26,7 @@ package("mkl_local")
             local threading = package:config("threading")
             if threading == "tbb" then
                 table.insert(flags, "-lmkl_tbb_thread")
-                package:add("deps", "tbb")
+                package:add("deps", "tbb_local")
             elseif threading == "seq" then
                 table.insert(flags, "-lmkl_sequential")
             elseif threading == "openmp" then
@@ -44,7 +44,7 @@ package("mkl_local")
             local threading = package:config("threading")
             if threading == "tbb" then
                 package:add("links", "mkl_tbb_thread")
-                package:add("deps", "tbb")
+                package:add("deps", "tbb_local")
             elseif threading == "seq" then
                 package:add("links", "mkl_sequential")
             elseif threading == "openmp" then

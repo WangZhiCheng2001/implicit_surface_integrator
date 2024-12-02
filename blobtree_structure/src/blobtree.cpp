@@ -1,5 +1,4 @@
 #include <cassert>
-#include <limits>
 
 #include "internal_api.hpp"
 
@@ -15,15 +14,16 @@ std::stack<uint32_t, std::deque<uint32_t, tbb::tbb_allocator<uint32_t>>> free_st
  * basic functionalities
  * ============================================================================================= */
 
-BPE_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes_primitive_mapping(uint32_t index) noexcept
-{
-    std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> mapping(primitives.size(), std::numeric_limits<uint32_t>::max());
-    for (const auto& leaf_node_index : structures[index].leaf_index) {
-        const uint32_t primitive_index = node_fetch_primitive_index(structures[index].nodes[leaf_node_index]);
-        mapping[primitive_index]       = leaf_node_index;
-    }
+BPE_API size_t blobtree_get_node_count(uint32_t index) noexcept { return structures[index].nodes.size(); }
 
-    return mapping;
+BPE_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes(uint32_t index) noexcept
+{
+    return structures[index].leaf_index;
+}
+
+BPE_API node_t& blobtree_get_node(const virtual_node_t& node) noexcept
+{
+    return structures[node.main_index].nodes[node.inner_index];
 }
 
 BPE_API size_t get_primitive_count() noexcept
@@ -79,64 +79,64 @@ BPE_API void free_sub_blobtree(uint32_t index) noexcept
     free_structure_list.push(index);
 }
 
-bool upward_propagation(blobtree_t& tree, const int leaf_node_index, const int root_index)
-{
-    int now_index = leaf_node_index;
-    now_index     = node_fetch_parent_index(tree.nodes[now_index]);
+// bool upward_propagation(blobtree_t& tree, const int leaf_node_index, const int root_index)
+// {
+//     int now_index = leaf_node_index;
+//     now_index     = node_fetch_parent_index(tree.nodes[now_index]);
 
-    while (true) {
-        auto& node        = tree.nodes[now_index];
-        auto& left_child  = tree.nodes[node_fetch_left_child_index(node)];
-        auto& right_child = tree.nodes[node_fetch_right_child_index(node)];
+//     while (true) {
+//         auto& node        = tree.nodes[now_index];
+//         auto& left_child  = tree.nodes[node_fetch_left_child_index(node)];
+//         auto& right_child = tree.nodes[node_fetch_right_child_index(node)];
 
-        auto          node_in_out_flag        = node_fetch_in_out(node);
-        eNodeLocation left_child_in_out_flag  = node_fetch_in_out(left_child);
-        eNodeLocation right_child_in_out_flag = node_fetch_in_out(right_child);
-        if (node_in_out_flag != eNodeLocation::unset) { return false; }
+//         auto          node_in_out_flag        = node_fetch_in_out(node);
+//         eNodeLocation left_child_in_out_flag  = node_fetch_in_out(left_child);
+//         eNodeLocation right_child_in_out_flag = node_fetch_in_out(right_child);
+//         if (node_in_out_flag != eNodeLocation::unset) { return false; }
 
-        switch (node_fetch_operation(node)) {
-            case eNodeOperation::unionOp: {
-                if (left_child_in_out_flag == eNodeLocation::in || right_child_in_out_flag == eNodeLocation::in) {
-                    node_in_out_flag = eNodeLocation::in;
-                } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag == eNodeLocation::out) {
-                    node_in_out_flag = eNodeLocation::out;
-                } else {
-                    return false;
-                }
-                break;
-            }
-            case eNodeOperation::intersectionOp: {
-                if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::in) {
-                    node_in_out_flag = eNodeLocation::in;
-                } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::out) {
-                    node_in_out_flag = eNodeLocation::out;
-                } else {
-                    return false;
-                }
-                break;
-            }
-            case eNodeOperation::differenceOp: {
-                if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::out) {
-                    node_in_out_flag = eNodeLocation::in;
-                }
-                if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::in) {
-                    node_in_out_flag = eNodeLocation::out;
-                } else {
-                    return false;
-                }
-                break;
-            }
-            default: {
-                return false;
-                break;
-            }
-        }
+//         switch (node_fetch_operation(node)) {
+//             case eNodeOperation::unionOp: {
+//                 if (left_child_in_out_flag == eNodeLocation::in || right_child_in_out_flag == eNodeLocation::in) {
+//                     node_in_out_flag = eNodeLocation::in;
+//                 } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag == eNodeLocation::out) {
+//                     node_in_out_flag = eNodeLocation::out;
+//                 } else {
+//                     return false;
+//                 }
+//                 break;
+//             }
+//             case eNodeOperation::intersectionOp: {
+//                 if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::in) {
+//                     node_in_out_flag = eNodeLocation::in;
+//                 } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::out) {
+//                     node_in_out_flag = eNodeLocation::out;
+//                 } else {
+//                     return false;
+//                 }
+//                 break;
+//             }
+//             case eNodeOperation::differenceOp: {
+//                 if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::out) {
+//                     node_in_out_flag = eNodeLocation::in;
+//                 }
+//                 if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::in) {
+//                     node_in_out_flag = eNodeLocation::out;
+//                 } else {
+//                     return false;
+//                 }
+//                 break;
+//             }
+//             default: {
+//                 return false;
+//                 break;
+//             }
+//         }
 
-        if (now_index == root_index) { return true; }
+//         if (now_index == root_index) { return true; }
 
-        now_index = node_fetch_parent_index(node);
-    }
-}
+//         now_index = node_fetch_parent_index(node);
+//     }
+// }
 
 // eNodeLocation evaluate(const virtual_node_t& node, const raw_vector3d_t& point)
 //{
@@ -154,17 +154,17 @@ bool upward_propagation(blobtree_t& tree, const int leaf_node_index, const int r
 //     return node_fetch_in_out(tree.nodes[node.inner_index]);
 // }
 
-aabb_t get_aabb(const virtual_node_t& node)
-{
-    auto&  tree       = structures[node.main_index];
-    auto&  leaf_index = tree.leaf_index;
-    aabb_t result{};
-    for (auto& index : leaf_index) {
-        auto& type = primitives[node_fetch_primitive_index(tree.nodes[index])].type;
-        if (type != PRIMITIVE_TYPE_CONSTANT && type != PRIMITIVE_TYPE_PLANE) { result.extend(aabbs[index]); }
-    }
-    return result;
-}
+// aabb_t get_aabb(const virtual_node_t& node)
+// {
+//     auto&  tree       = structures[node.main_index];
+//     auto&  leaf_index = tree.leaf_index;
+//     aabb_t result{};
+//     for (auto& index : leaf_index) {
+//         auto& type = primitives[node_fetch_primitive_index(tree.nodes[index])].type;
+//         if (type != PRIMITIVE_TYPE_CONSTANT && type != PRIMITIVE_TYPE_PLANE) { result.extend(aabbs[index]); }
+//     }
+//     return result;
+// }
 
 // uint32_t get_closest_common_parent(const std::vector<bool>& mask, const int main_index)
 // {
@@ -251,7 +251,7 @@ BPE_API bool virtual_node_set_parent(const virtual_node_t& node, const virtual_n
     return false;
 }
 
-BPE_API bool virtual_node_set_left_child(const virtual_node_t& node, virtual_node_t& child)
+BPE_API bool virtual_node_set_left_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
@@ -279,7 +279,7 @@ BPE_API bool virtual_node_set_left_child(const virtual_node_t& node, virtual_nod
     return true;
 }
 
-BPE_API bool virtual_node_set_right_child(const virtual_node_t& node, virtual_node_t& child)
+BPE_API bool virtual_node_set_right_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
@@ -307,7 +307,7 @@ BPE_API bool virtual_node_set_right_child(const virtual_node_t& node, virtual_no
     return true;
 }
 
-BPE_API bool virtual_node_add_child(const virtual_node_t& node, virtual_node_t& child)
+BPE_API bool virtual_node_add_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     if (virtual_node_set_left_child(node, child)) {
         return true;
@@ -318,7 +318,7 @@ BPE_API bool virtual_node_add_child(const virtual_node_t& node, virtual_node_t& 
     return false;
 }
 
-BPE_API bool virtual_node_remove_child(const virtual_node_t& node, virtual_node_t& child)
+BPE_API bool virtual_node_remove_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     if (node.main_index != child.main_index) { return false; }
 
@@ -342,8 +342,6 @@ BPE_API bool virtual_node_remove_child(const virtual_node_t& node, virtual_node_
 /* =============================================================================================
  * geometry operations
  * ============================================================================================= */
-
-static constexpr node_t standard_new_node = {(uint64_t)0xFFFFFFFFFFFFFFFFu, (uint64_t)0xFFFFFFFFFFFFFFFFu};
 
 static inline void virtual_node_boolean_op(virtual_node_t& node1, const virtual_node_t& node2, eNodeOperation op)
 {

@@ -25,7 +25,8 @@ template <>
 struct hash<simplified_vertex_header_t> {
     size_t operator()(const simplified_vertex_header_t &k) const
     {
-        return std::hash<uint32_t>()(k.volume_index) ^ std::hash<uint32_t>()(k.local_vertex_index);
+        return (static_cast<size_t>(k.volume_index) << 32) | k.local_vertex_index;
+        // return std::hash<uint32_t>()(k.volume_index) ^ std::hash<uint32_t>()(k.local_vertex_index);
     }
 };
 
@@ -33,7 +34,8 @@ template <>
 struct hash<component_header_t> {
     size_t operator()(const component_header_t &k) const
     {
-        return std::hash<uint32_t>()(k.vertex_index) ^ std::hash<uint32_t>()(k.component_index);
+        return (static_cast<size_t>(k.vertex_index) << 32) | k.component_index;
+        // return std::hash<uint32_t>()(k.vertex_index) ^ std::hash<uint32_t>()(k.component_index);
     }
 };
 
@@ -41,7 +43,8 @@ template <>
 struct hash<face_with_orient_t> {
     size_t operator()(const face_with_orient_t &k) const
     {
-        return std::hash<uint32_t>()(k.face_id) ^ std::hash<int8_t>()(k.orient);
+        return (static_cast<size_t>(k.face_id) << 32) | k.orient;
+        // return std::hash<uint32_t>()(k.face_id) ^ std::hash<int8_t>()(k.orient);
     }
 };
 
@@ -81,7 +84,7 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                        
                                 const stl_vector_mp<uint32_t>                       &shell_of_half_patch,
                                 const stl_vector_mp<stl_vector_mp<uint32_t>>        &components,
                                 const stl_vector_mp<uint32_t>                       &component_of_patch,
-                                stl_vector_mp<stl_vector_mp<uint32_t>>              &arrangement_cells);
+                                stl_vector_mp<std::pair<uint32_t, uint32_t>>        &shell_links);
 
 // Given tet mesh,
 // build the map: v-->v_next, where v_next has lower order than v

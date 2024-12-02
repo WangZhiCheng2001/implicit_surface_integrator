@@ -11,7 +11,7 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                        
                                 const stl_vector_mp<uint32_t>                       &shell_of_half_patch,
                                 const stl_vector_mp<stl_vector_mp<uint32_t>>        &components,
                                 const stl_vector_mp<uint32_t>                       &component_of_patch,
-                                stl_vector_mp<stl_vector_mp<uint32_t>>              &arrangement_cells)
+                                stl_vector_mp<std::pair<uint32_t, uint32_t>>        &shell_links)
 {
     // map: tet vert index --> index of next vert (with smaller (x,y,z))
     stl_vector_mp<uint32_t> next_vert{};
@@ -40,7 +40,6 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                        
 
 
     // topological ray shooting
-    stl_vector_mp<std::pair<uint32_t, uint32_t>> shell_links{};
     {
         shell_links.reserve(components.size());
         stl_vector_mp<uint32_t> sorted_vert_indices_on_edge{};
@@ -139,9 +138,6 @@ ISNP_API void topo_ray_shooting(const tetrahedron_mesh_t                        
             }
         }
     }
-
-    // group shells into arrangement cells
-    compute_arrangement_cells(static_cast<uint32_t>(shells.size()), shell_links, arrangement_cells);
 }
 
 ISNP_API void build_next_vert(const tetrahedron_mesh_t &tet_mesh, stl_vector_mp<uint32_t> &next_vert)

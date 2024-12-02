@@ -4,8 +4,6 @@
 
 /* Geometry Generation */
 
-static constexpr node_t standard_new_node = {(uint64_t)0xFFFFFFFFFFFFFFFFu, (uint64_t)0xFFFFFFFFFFFFFFFFu};
-
 virtual_node_t push_primitive_node(primitive_node_t&& primitive_node, const aabb_t&& aabb)
 {
     aabbs.emplace_back(aabb);
@@ -125,4 +123,4 @@ BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t& des
     return push_primitive_node(std::move(node), std::move(aabb));
 }
 
-BPE_API void blobtree_free_virtual_node(virtual_node_t* node) { free_sub_blobtree(node->main_index); }
+BPE_API void blobtree_free_virtual_node(const virtual_node_t& node) { free_sub_blobtree(node.main_index); }

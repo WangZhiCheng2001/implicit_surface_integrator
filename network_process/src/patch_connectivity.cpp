@@ -47,20 +47,19 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
                               const stl_vector_mp<iso_edge_t>&              patch_edges,
                               const stl_vector_mp<polygon_face_t>&          patch_faces,
                               stl_vector_mp<stl_vector_mp<uint32_t>>&       patches,
-                              stl_vector_mp<uint32_t>&                      patch_function_label,
                               stl_vector_mp<uint32_t>&                      patch_of_face_mapping)
 {
     stl_vector_mp<bool> visited_face(edges_of_face.size(), false);
     for (uint32_t i = 0; i < edges_of_face.size(); i++) {
         if (!visited_face[i]) {
             // new patch
-            auto&                patch = patches.emplace_back();
+            auto&                patch    = patches.emplace_back();
+            const auto           patch_id = static_cast<uint32_t>(patches.size() - 1);
             std::queue<uint32_t> Q{};
             Q.emplace(i);
             patch.emplace_back(i);
-            visited_face[i] = true;
-            patch_function_label.emplace_back(patch_faces[i].implicit_function_index);
-            patch_of_face_mapping[i] = static_cast<uint32_t>(patch.size() - 1);
+            visited_face[i]          = true;
+            patch_of_face_mapping[i] = patch_id;
             while (!Q.empty()) {
                 const auto fId = Q.front();
                 Q.pop();
@@ -72,7 +71,7 @@ ISNP_API void compute_patches(const stl_vector_mp<stl_vector_mp<uint32_t>>& edge
                         if (!visited_face[other_fId]) {
                             Q.emplace(other_fId);
                             patch.emplace_back(other_fId);
-                            patch_of_face_mapping[other_fId] = static_cast<uint32_t>(patch.size() - 1);
+                            patch_of_face_mapping[other_fId] = patch_id;
                             visited_face[other_fId]          = true;
                         }
                     }
@@ -126,12 +125,11 @@ ISNP_API void compute_chains(const stl_vector_mp<iso_edge_t>&              patch
     }
 }
 
-ISNP_API void compute_shells_and_components(const stl_vector_mp<small_vector_mp<uint32_t>>& half_patch_adj_list,
-                                            const stl_vector_mp<dynamic_bitset_mp<>>&       patch_func_signs,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         shells,
-                                            stl_vector_mp<uint32_t>&                        shell_of_half_patch,
-                                            stl_vector_mp<stl_vector_mp<uint32_t>>&         components,
-                                            stl_vector_mp<uint32_t>&                        component_of_patch)
+ISNP_API void compute_shells_and_components(const stl_vector_mp<stl_vector_mp<uint32_t>>& half_patch_adj_list,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&       shells,
+                                            stl_vector_mp<uint32_t>&                      shell_of_half_patch,
+                                            stl_vector_mp<stl_vector_mp<uint32_t>>&       components,
+                                            stl_vector_mp<uint32_t>&                      component_of_patch)
 {
     const auto          num_patch = half_patch_adj_list.size() / 2;
     // find connected component of half-patch adjacency graph
@@ -269,78 +267,4 @@ ISNP_API void compute_arrangement_cells(uint32_t                                
         // arr_cell = sink_free_shell_list;
         std::swap(arr_cell, sink_free_shell_list);
     }
-}
-
-ISNP_API stl_vector_mp<stl_vector_mp<bool>> sign_propagation(const stl_vector_mp<stl_vector_mp<uint32_t>>& arrangement_cells,
-                                                             const stl_vector_mp<uint32_t>&                shell_of_half_patch,
-                                                             const stl_vector_mp<stl_vector_mp<uint32_t>>& shells,
-                                                             const stl_vector_mp<uint32_t>&                patch_function_label,
-                                                             uint32_t                                      n_func,
-                                                             const stl_vector_mp<bool>& sample_function_label)
-{
-    stl_vector_mp<uint32_t> shell_to_cell(shells.size());
-    for (uint32_t i = 0; i < arrangement_cells.size(); i++) {
-        for (auto shell : arrangement_cells[i]) { shell_to_cell[shell] = i; }
-    }
-    stl_vector_mp<stl_vector_mp<bool>>       cell_function_label(arrangement_cells.size(), stl_vector_mp<bool>(n_func, false));
-    stl_vector_mp<bool>                      visited_cells(arrangement_cells.size(), false);
-    stl_vector_mp<bool>                      visited_functions(n_func, false);
-    stl_vector_mp<small_vector_mp<uint32_t>> inactive_func_stacks(n_func);
-    std::queue<uint32_t>                     Q{};
-    flat_hash_map_mp<uint32_t, std::pair<uint32_t, bool>> cell_neighbors_map{};
-
-    Q.emplace(0);
-    while (!Q.empty()) {
-        const auto cell_index = Q.front();
-        const auto cell       = arrangement_cells[cell_index];
-        Q.pop();
-        if (!visited_cells[cell_index]) {
-            visited_cells[cell_index] = true;
-            auto& current_label       = cell_function_label[cell_index];
-            cell_neighbors_map.clear();
-            for (auto shell : cell) {
-                for (auto half_patch : shells[shell]) {
-                    auto function_label = patch_function_label[half_patch / 2];
-                    bool sign           = (half_patch % 2 == 0) ? 1 : 0;
-                    auto oppose_cell    = shell_to_cell[shell_of_half_patch[sign ? (half_patch + 1) : (half_patch - 1)]];
-                    cell_neighbors_map[oppose_cell] = std::make_pair(function_label, sign);
-                    if (visited_functions[function_label] != false && current_label[function_label] != sign) {
-                        throw std::runtime_error("ERROR: Inconsistent Cell Function Labels.");
-                    }
-                    current_label[function_label]     = sign;
-                    visited_functions[function_label] = true;
-                    // propagate the function signs to all previously inactive cells
-                    if (inactive_func_stacks[function_label].size() > 0) {
-                        for (const auto cell_iter : inactive_func_stacks[function_label]) {
-                            cell_function_label[cell_iter][function_label] = sign;
-                        }
-                        inactive_func_stacks[function_label].clear();
-                    }
-                }
-            }
-            // fetch inactive function index
-            for (uint32_t func_iter = 0; func_iter < current_label.size(); func_iter++) {
-                if (visited_functions[func_iter] == false) {
-                    inactive_func_stacks[func_iter].emplace_back(cell_index);
-                    for (const auto& [other_cell_index, _] : cell_neighbors_map) {
-                        inactive_func_stacks[func_iter].emplace_back(other_cell_index);
-                    }
-                }
-            }
-            // propagate to neighboring cells
-            for (const auto& [other_cell_index, other_cell_func_label] : cell_neighbors_map) {
-                if (!visited_cells[other_cell_index]) Q.emplace(other_cell_index);
-                cell_function_label[other_cell_index]                              = current_label;
-                cell_function_label[other_cell_index][other_cell_func_label.first] = !other_cell_func_label.second;
-            }
-        }
-    }
-
-    for (uint32_t i = 0; i < n_func; i++) {
-        if (visited_functions[i] == false) {
-            for (auto& label : cell_function_label) { label[i] = sample_function_label[i]; }
-        }
-    }
-
-    return cell_function_label;
 }

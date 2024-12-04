@@ -82,7 +82,7 @@ void output_primitive_node(const primitive_node_t& node)
                 auto begin  = desc->faces[i][0];
                 auto length = desc->faces[i][1];
                 std::cout << "\t\t<" << begin << ", " << length << "> : ";
-                for (int j = begin; j < begin + length; j++) { std::cout << desc->indexs[j] << " "; }
+                for (int j = begin; j < begin + length; j++) { std::cout << desc->indices[j] << " "; }
                 std::cout << std::endl;
             }
             break;

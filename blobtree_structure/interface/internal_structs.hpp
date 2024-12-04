@@ -38,6 +38,16 @@ struct aabb_t {
     {
         return (point.array() >= min.array()).all() && (point.array() <= max.array()).all();
     }
+
+    void clear()
+    {
+        min = Eigen::Vector3d{std::numeric_limits<double>::max(),
+                              std::numeric_limits<double>::max(),
+                              std::numeric_limits<double>::max()};
+        max = Eigen::Vector3d{std::numeric_limits<double>::min(),
+                              std::numeric_limits<double>::min(),
+                              std::numeric_limits<double>::min()};
+    }
 };
 
 // ======================================================================
@@ -111,7 +121,7 @@ struct node_proxy {
     constexpr node_proxy& operator+=(_Fp&& other)
     {
         const auto _mask      = mask << offset;
-        const auto low_data   = (data >> offset).to_ullong();
+        const auto low_data   = ((data & _mask) >> offset).to_ullong();
         const auto low_result = static_cast<uint64_t>(std::forward<_Fp>(other)) + low_data;
         data                  = (data & ~_mask) | ((node_t{low_result} << offset) & _mask);
         return *this;

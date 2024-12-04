@@ -4,11 +4,16 @@
 #include "environment.h"
 #include "execution.h"
 
-setting_descriptor g_settings{99, 1e-5};
+setting_descriptor g_settings{};
 
 EXTERN_C API void update_setting(const setting_descriptor desc)
 {
     g_settings = std::move(desc);
+
+    // safety checks
+    if (g_settings.resolution <= 0) g_settings.resolution = 99;
+    if (g_settings.scene_aabb_margin <= 0) g_settings.scene_aabb_margin = 1e-5;
+
     load_lut();
 }
 

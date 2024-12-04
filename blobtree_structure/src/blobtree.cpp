@@ -3,6 +3,7 @@
 #include "internal_api.hpp"
 
 #include "globals.hpp"
+#include "primitive_node_destroyer.hpp"
 
 /* internal global variables for blobtree */
 std::vector<blobtree_t, tbb::tbb_allocator<blobtree_t>>                  structures{};
@@ -77,6 +78,15 @@ BPE_API void free_sub_blobtree(uint32_t index) noexcept
 {
     // 这里尽量打标记，延迟修改和删除
     free_structure_list.push(index);
+}
+
+BPE_API void clear_blobtree() noexcept
+{
+    structures.clear();
+    aabbs.clear();
+    for (auto& prim : primitives) { destroy_primitive_node(prim); }
+    primitives.clear();
+    while (!free_structure_list.empty()) free_structure_list.pop();
 }
 
 // bool upward_propagation(blobtree_t& tree, const int leaf_node_index, const int root_index)

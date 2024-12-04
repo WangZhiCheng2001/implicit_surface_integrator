@@ -4,7 +4,8 @@
 #include <execution.h>
 #include <io.h>
 
-#include <internal_api.hpp>
+#include <construct_helper.hpp>
+#include "primitive_descriptor.h"
 
 int main()
 {
@@ -23,12 +24,13 @@ int main()
     };
     // auto tree_root = blobtree_new_node(&sphere1, PRIMITIVE_TYPE_SPHERE);
     // auto tree_root = blobtree_new_node(&box, PRIMITIVE_TYPE_BOX);
-    auto tree_root = blobtree_new_node(&sphere1, PRIMITIVE_TYPE_SPHERE);
-    auto another_sphere_node = blobtree_new_node(&sphere2, PRIMITIVE_TYPE_SPHERE);
-    virtual_node_boolean_union(&tree_root, &another_sphere_node);
+    // auto tree_root = blobtree_new_node(&sphere1, PRIMITIVE_TYPE_SPHERE);
+    // auto another_sphere_node = blobtree_new_node(&sphere2, PRIMITIVE_TYPE_SPHERE);
+    // virtual_node_boolean_union(&tree_root, &another_sphere_node);
+    auto tree_root = make_primitive_node_by_move(box);
 
     std::cout << "Setting environments..." << std::endl;
-    setting_descriptor setting_desc{21};
+    setting_descriptor setting_desc{21, 1e-5};
     update_setting(setting_desc);
     update_environment(&tree_root);
 

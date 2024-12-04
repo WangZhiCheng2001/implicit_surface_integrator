@@ -54,11 +54,16 @@ typedef struct {
 
 // Mesh descriptor
 typedef struct {
-    uint32_t        point_number; // The point number of the mesh
-    uint32_t        face_number;  // The face number of the mesh
-    raw_vector3d_t* points;       // The points of the mesh
-    uint32_t*       indexs;       // The indexs from face to point
-    uint32_t**      faces;        // Two-dimensional array, Use [begin index, length] to represent a face
+    uint32_t begin_index;
+    uint32_t vertex_count;
+} polygon_face_descriptor_t;
+
+typedef struct {
+    uint32_t                   point_number; // The point number of the mesh
+    uint32_t                   face_number;  // The face number of the mesh
+    raw_vector3d_t*            points;       // The points of the mesh
+    uint32_t*                  indices;      // The indices from face to point
+    polygon_face_descriptor_t* faces;        // Two-dimensional array, Use [begin index, length] to represent a face
 } mesh_descriptor_t;
 
 // Extrude descriptor

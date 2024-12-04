@@ -65,7 +65,7 @@ public:
     }
 
     BodyTag createMesh(const std::vector<Vector3D>            points,
-                       const std::vector<int>                 indexs,
+                       const std::vector<int>                 indices,
                        const std::vector<std::pair<int, int>> faces)
     {
         mesh_descriptor_t descriptor;
@@ -73,8 +73,8 @@ public:
         descriptor.points = new Vector3D[points.size()];
         memcpy(descriptor.points, points.data(), points.size() * sizeof(Vector3D));
 
-        descriptor.indexs = new int[indexs.size()];
-        memcpy(descriptor.indexs, indexs.data(), indexs.size() * sizeof(double));
+        descriptor.indices = new int[indices.size()];
+        memcpy(descriptor.indices, indices.data(), indices.size() * sizeof(double));
 
         descriptor.faces = new int*[faces.size()];
         for (int i = 0; i < faces.size(); ++i) {
@@ -143,7 +143,7 @@ void test()
     double                    offset, radius, radius1, radius2, length, width, height, areaDifference, volumeDifference;
     std::pair<double, double> before, after;
 
-    /* Ìå1 */
+    /* ï¿½ï¿½1 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32450.000001122418, -3.8391231093737305e-07, 0.0000000000000000});
@@ -153,7 +153,7 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag1 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå2 */
+    /* ï¿½ï¿½2 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32450.000001122418, -3.8391231093737305e-07, 0.0000000000000000});
@@ -167,7 +167,7 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag2 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå3 */
+    /* ï¿½ï¿½3 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32450.000001122418, -3.8391231093737305e-07, 0.0000000000000000});
@@ -181,22 +181,22 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag3 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå4 */
+    /* ï¿½ï¿½4 */
     topPoint    = Vector3D{-1.1224183253943920e-06, -3.8391322798592142e-07, 0.0000000000000000};
     bottomPoint = Vector3D{-1.1224183253943920e-06, -3.8391322798592142e-07, 3300.0000000000000000};
     radius1     = 32450.000000000000;
     radius2     = 33539.000000000000;
     auto tag4   = scene.createCone(topPoint, bottomPoint, radius1, radius2);
 
-    /* Ìå3±»ÇÐ¸î */
+    /* ï¿½ï¿½3ï¿½ï¿½ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8391322798592142e-07, 0.0000000000000000};
     scene.split(tag3, basePoint, direction);
 
-    /* Ìå3ºÍÌå4²¼¶û²î */
+    /* ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag3, tag4);
 
-    /* Ìå5 */
+    /* ï¿½ï¿½5 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32450.000001122418, -3.8391231093737305e-07, 0.0000000000000000});
@@ -210,15 +210,15 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag5 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå5±»ÇÐ¸î */
+    /* ï¿½ï¿½5ï¿½ï¿½ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8391322798592142e-07, 3300.0000000000000000};
     scene.split(tag5, basePoint, direction);
 
-    /* Ìå3ºÍÌå5²¼¶û²¢ */
+    /* ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag3, tag5);
 
-    /* Ìå6 */
+    /* ï¿½ï¿½6 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32450.000001122418, -3.8391231093737305e-07, 0.0000000000000000});
@@ -232,18 +232,18 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag6 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå6Ìå±»ÇÐ¸î */
+    /* ï¿½ï¿½6ï¿½å±»ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8391322798592142e-07, 3300.0000000000000000};
     scene.split(tag6, basePoint, direction);
 
-    /* Ìå3ºÍÌå6²¼¶û²¢ */
+    /* ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½6ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag3, tag6);
 
-    /* Ìå2ºÍÌå3²¼¶û²î */
+    /* ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag2, tag3);
 
-    /* Ìå7 */
+    /* ï¿½ï¿½7 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{32449.999998877582, -3.8392495305561452e-07, 0.0000000000000000});
@@ -257,7 +257,7 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag7 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå8 */
+    /* ï¿½ï¿½8 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{32449.999998877582, -3.8392495305561452e-07, 0.0000000000000000});
@@ -271,22 +271,22 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag8 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå9 */
+    /* ï¿½ï¿½9 */
     topPoint    = Vector3D{-1.1224183253943920e-06, -3.8392403600706615e-07, 0.0000000000000000};
     bottomPoint = Vector3D{-1.1224183253943920e-06, -3.8392403600706615e-07, 3300.0000000000000000};
     radius1     = 32450.000000000000;
     radius2     = 33539.000000000000;
     auto tag9   = scene.createCone(topPoint, bottomPoint, radius1, radius2);
 
-    /* Ìå8±»ÇÐ¸î */
+    /* ï¿½ï¿½8ï¿½ï¿½ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8392403600706615e-07, 3300.0000000000000000};
     scene.split(tag8, basePoint, direction);
 
-    /* Ìå8ºÍÌå9²¼¶û²î */
+    /* ï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½9ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag8, tag9);
 
-    /* Ìå10 */
+    /* ï¿½ï¿½10 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{32449.999998877582, -3.8392495305561452e-07, 0.0000000000000000});
@@ -300,15 +300,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag10 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå10±»ÇÐ¸î */
+    /* ï¿½ï¿½10ï¿½ï¿½ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8392403600706615e-07, 3300.0000000000000000};
     scene.split(tag10, basePoint, direction);
 
-    /* Ìå8ºÍÌå10²¼¶û²¢ */
+    /* ï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag8, tag10);
 
-    /* Ìå11 */
+    /* ï¿½ï¿½11 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{32449.999998877582, -3.8392495305561452e-07, 0.0000000000000000});
@@ -322,24 +322,24 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 3300.0000000000000};
     auto tag11 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå11±»ÇÐ¸î */
+    /* ï¿½ï¿½11ï¿½ï¿½ï¿½Ð¸ï¿½ */
     direction = Vector3D{0, 0, 1};
     basePoint = Vector3D{-1.1224183253943920e-06, -3.8392403600706615e-07, 3300.0000000000000000};
     scene.split(tag11, basePoint, direction);
 
-    /* Ìå8ºÍÌå11²¼¶û²¢ */
+    /* ï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½11ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag8, tag11);
 
-    /* Ìå7ºÍÌå8²¼¶û²î */
+    /* ï¿½ï¿½7ï¿½ï¿½ï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag7, tag8);
 
-    /* Ìå2ºÍÌå7²¼¶û²¢ */
+    /* ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½7ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag2, tag7);
 
-    /* Ìå1ºÍÌå2²¼¶û²¢ */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanUnion(tag1, tag2);
 
-    /* Ìå1 ZÖáÆ«ÒÆ -3600 */
+    /* ï¿½ï¿½1 Zï¿½ï¿½Æ«ï¿½ï¿½ -3600 */
     direction = Vector3D{0, 0, 1};
     offset    = -3600;
     scene.offset(tag1, direction, offset);
@@ -348,7 +348,7 @@ void test()
     output_blobtree(tag1);
 #endif // _DEBUG
 
-    /* Ìå111 */
+    /* ï¿½ï¿½111 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-32050.000001122418, -3.8396319723688066e-07, 0.0000000000000000});
@@ -358,7 +358,7 @@ void test()
     extusion    = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
     auto tag111 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå0 */
+    /* ï¿½ï¿½0 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-11798.670446418590, 5999.2409883221799, 0.0000000000000000});
@@ -368,15 +368,15 @@ void test()
     extusion  = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
     auto tag0 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå111ºÍÌå0²¼¶û²î */
+    /* ï¿½ï¿½111ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag111, tag0);
 
-    /* Ìå111 ZÖáÆ«ÒÆ -3500 */
+    /* ï¿½ï¿½111 Zï¿½ï¿½Æ«ï¿½ï¿½ -3500 */
     direction = Vector3D{0, 0, 1};
     offset    = -3500;
     scene.offset(tag111, direction, offset);
 
-    /* Ìå12 */
+    /* ï¿½ï¿½12 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{676.33403607269543, 5999.2409883221790, 0.0000000000000000});
@@ -386,15 +386,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
     auto tag12 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå12 ZÖáÆ«ÒÆ -3500 */
+    /* ï¿½ï¿½12 Zï¿½ï¿½Æ«ï¿½ï¿½ -3500 */
     direction = Vector3D{0, 0, 1};
     offset    = -3500;
     scene.offset(tag12, direction, offset);
 
-    /* Ìå111ºÍÌå12²¼¶û²¢£¬±£ÁôÌå12 */
+    /* ï¿½ï¿½111ï¿½ï¿½ï¿½ï¿½12ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½12 */
     scene.booleanUnion(tag111, tag12);
 
-    /* Ìå13 */
+    /* ï¿½ï¿½13 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-2398.6665401680511, 5999.2409883221771, 0.0000000000000000});
@@ -404,7 +404,7 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
     auto tag13 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå14 */
+    /* ï¿½ï¿½14 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-673.66711640879771, 5999.2409883221790, 0.0000000000000000});
@@ -414,28 +414,28 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
     auto tag14 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå13ºÍÌå14²¼¶û²î	 */
+    /* ï¿½ï¿½13ï¿½ï¿½ï¿½ï¿½14ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	 */
     scene.booleanDifference(tag13, tag14);
 
-    /* Ìå13 ZÖáÆ«ÒÆ -3500 */
+    /* ï¿½ï¿½13 Zï¿½ï¿½Æ«ï¿½ï¿½ -3500 */
     direction = Vector3D{0, 0, 1};
     offset    = -3500;
     scene.offset(tag13, direction, offset);
 
-    /* Ìå11ºÍÌå13²¼¶û²¢£¬±£ÁôÌå13 */
+    /* ï¿½ï¿½11ï¿½ï¿½ï¿½ï¿½13ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½13 */
     scene.booleanUnion(tag111, tag13);
 
     before = scene.getAreaAndVolume(tag1);
-    /* Ìå1ºÍÌå111²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½111ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag111);
     after = scene.getAreaAndVolume(tag1);
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;
 
-    /* ¶¨Òå¿ÕÌå ¿Û¼õÌå1 */
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Û¼ï¿½ï¿½ï¿½1 */
     auto subTag1 = scene.createEmpty();
     auto cycle   = [&scene, &subTag1](const Vector3D& point) {
         std::vector<Vector3D> points;
@@ -444,7 +444,7 @@ void test()
         Vector3D              direction;
         double                offset;
 
-        /* Ñ­»·Ìå1 */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½1 */
         points.clear();
         bulges.clear();
         points.push_back(Vector3D{-1000.0000000000000, 1000.0000000000001, 0.0000000000000000});
@@ -458,17 +458,17 @@ void test()
         extusion       = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
         auto cycleTag1 = scene.createExtrude(points, bulges, extusion);
 
-        /* Ñ­»·Ìå1 Æ«ÒÆ+ ´«ÈëµÄX,Y,Z×ø±êÖµ  */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½1 Æ«ï¿½ï¿½+ ï¿½ï¿½ï¿½ï¿½ï¿½X,Y,Zï¿½ï¿½ï¿½ï¿½Öµ  */
         scene.offset(cycleTag1, point);
 
-        /* Ñ­»·Ìå2 */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½2 */
         auto   leftBottomPoint = Vector3D{point.x - 1000, point.y - 1000, point.z + 0.0000000000005};
         double length          = 2000.0000000000036;
         double width           = 2000.0000000000036;
         double height          = 600;
         auto   cycleTag2       = scene.createBox(leftBottomPoint, length, width, height);
 
-        /* Ñ­»·Ìå */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½ */
         points.clear();
         bulges.clear();
         points.push_back(Vector3D{-32050.000001122418, -3.8396319723688066e-07, 0.0000000000000000});
@@ -478,18 +478,18 @@ void test()
         extusion       = Vector3D{0.0000000000000000, 0.0000000000000000, 600.0000000000000};
         auto cycleTag3 = scene.createExtrude(points, bulges, extusion);
 
-        /* Ñ­»·Ìå3 ZÖáÆ«ÒÆ -2900 */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½3 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
         direction = Vector3D{0, 0, 1};
         offset    = -2900;
         scene.offset(cycleTag3, direction, offset);
 
-        /* Ñ­»·Ìå3ºÍÌå2²¼¶û½» */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
         scene.booleanIntersect(cycleTag3, cycleTag2);
 
-        /* Ñ­»·Ìå1ºÍÌå3²¼¶û½» */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
         scene.booleanIntersect(cycleTag1, cycleTag3);
 
-        /* ¿Û¼õÌå1ºÍÑ­»·Ìå1²¼¶û²¢ */
+        /* ï¿½Û¼ï¿½ï¿½ï¿½1ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
         scene.booleanUnion(subTag1, cycleTag1);
     };
 
@@ -543,16 +543,16 @@ void test()
     for (auto& point : points) { cycle(point); }
 
     before = scene.getAreaAndVolume(tag1);
-    /* Ìå1ºÍ¿Û¼õÌå1²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½Í¿Û¼ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, subTag1);
     after = scene.getAreaAndVolume(tag1);
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;
 
-    /* Ìå15 Ent1.bool */
+    /* ï¿½ï¿½15 Ent1.bool */
     bottomPoint  = Vector3D{0.0000, 0.0000, -3600.0000};
     radius       = 32150.0;
     direction    = Vector3D{0, 0, 100};
@@ -563,10 +563,10 @@ void test()
     auto tag15_1 = scene.createCylinder(bottomPoint, radius, direction);
     scene.booleanDifference(tag15, tag15_1);
 
-    /* Ìå1ºÍÌå15²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½15ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag15);
 
-    /* Ìå16 */
+    /* ï¿½ï¿½16 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-2503.6291053659488, 5999.2409883221790, -3500.0000000000000});
@@ -577,16 +577,16 @@ void test()
     auto tag16 = scene.createExtrude(points, bulges, extusion);
 
     before = scene.getAreaAndVolume(tag1);
-    /* Ìå1ºÍÌå16²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½16ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag16);
     after = scene.getAreaAndVolume(tag1);
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;
 
-    /* Ìå17 */
+    /* ï¿½ï¿½17 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{2079.8334638622341, 5999.2409883221844, 0.0000000000000000});
@@ -600,15 +600,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2750.0000000000000};
     auto tag17 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå17 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½17 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag17, direction, offset);
 
-    /* Ìå1ºÍÌå17²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½17ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag17);
 
-    /* Ìå18 */
+    /* ï¿½ï¿½18 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{-2070.1665441983364, 5999.2409883221844, 0.0000000000000000});
@@ -622,15 +622,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2750.0000000000000};
     auto tag18 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå18 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½18 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag18, direction, offset);
 
-    /* Ìå1ºÍÌå18²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½18ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag18);
 
-    /* Ìå19 */
+    /* ï¿½ï¿½19 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{8760.4644464528919, -16861.795338417785, 0.0000000000000000});
@@ -644,15 +644,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
     auto tag19 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå19 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½19 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag19, direction, offset);
 
-    /* Ìå1ºÍÌå19²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½19ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag19);
 
-    /* Ìå20 */
+    /* ï¿½ï¿½20 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{8472.1973651856952, -23124.378331468590, 0.0000000000000000});
@@ -666,15 +666,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
     auto tag20 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå20 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½20 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag20, direction, offset);
 
-    /* Ìå1ºÍÌå20²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½20ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag20);
 
-    /* Ìå21 */
+    /* ï¿½ï¿½21 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{11234.316117012169, -21717.002618593222, 0.0000000000000000});
@@ -688,15 +688,15 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
     auto tag21 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå21 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½21 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag21, direction, offset);
 
-    /* Ìå1ºÍÌå21²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½21ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag21);
 
-    /* Ìå22 */
+    /* ï¿½ï¿½22 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{5893.9646280986062, -18064.309214597473, 0.0000000000000000});
@@ -710,22 +710,22 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
     auto tag22 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå22 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½22 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag22, direction, offset);
 
     before = scene.getAreaAndVolume(tag1);
-    /* Ìå1ºÍÌå22²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½22ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag22);
     after = scene.getAreaAndVolume(tag1);
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;
 
-    /* Ìå23 */
+    /* ï¿½ï¿½23 */
     points.clear();
     bulges.clear();
     points.push_back(Vector3D{7380.7150904719992, -20706.098050612181, 0.0000000000000000});
@@ -739,35 +739,35 @@ void test()
     extusion   = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
     auto tag23 = scene.createExtrude(points, bulges, extusion);
 
-    /* Ìå23 ZÖáÆ«ÒÆ -2900 */
+    /* ï¿½ï¿½23 Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
     direction = Vector3D{0, 0, 1};
     offset    = -2900;
     scene.offset(tag23, direction, offset);
 
     before = scene.getAreaAndVolume(tag1);
-    /* Ìå1ºÍÌå23²¼¶û²î */
+    /* ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½23ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     scene.booleanDifference(tag1, tag23);
     after = scene.getAreaAndVolume(tag1);
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;
 
-    /* ÒÔÏÂÎªÒ»¸öÑ­»·£¬Í¹¶È×é¹Ì¶¨£¬µ«µã×é²»Ò»Ñù£¬ÆäËû²Ù×÷Ò»ÖÂ */
+    /* ï¿½ï¿½ï¿½ï¿½ÎªÒ»ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Í¹ï¿½ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é²»Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ */
     auto cycle1 = [&scene, &tag1](const Vector3D& point1, const Vector3D point2) {
-        /* Ñ­»·Ìå */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½ */
         const std::vector<Vector3D> points   = {point1, point2};
         std::vector<double>         bulges   = {0.99999999999999989, 0.99999999999999989};
         Vector3D                    extusion = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
         auto                        cycleTag = scene.createExtrude(points, bulges, extusion);
 
-        /* Ñ­»·Ìå ZÖáÆ«ÒÆ -2900 */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½ Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
         Vector3D direction = Vector3D{0, 0, 1};
         double   offset    = -2900;
         scene.offset(cycleTag, direction, offset);
 
-        /* Ìå1ºÍÑ­»·Ìå²¼¶û²î */
+        /* ï¿½ï¿½1ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½å²¼ï¿½ï¿½ï¿½ï¿½ */
         scene.booleanDifference(tag1, cycleTag);
     };
 
@@ -937,20 +937,20 @@ void test()
     points.push_back(Vector3D{-22821.612136159150, -11781.067532595984, 0.0000000000000000});
     for (size_t i = 0; i < points.size(); i += 2) { cycle1(points[i], points[i + 1]); }
 
-    /* ÒÔÏÂÎªÒ»¸öÑ­»·£¬Í¹¶È×é¹Ì¶¨£¬µ«µã×é²»Ò»Ñù£¬ÆäËû²Ù×÷Ò»ÖÂ */
+    /* ï¿½ï¿½ï¿½ï¿½ÎªÒ»ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Í¹ï¿½ï¿½ï¿½ï¿½Ì¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é²»Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ */
     auto cycle2 = [&scene, &tag1](const Vector3D& point1, const Vector3D point2, const Vector3D point3, const Vector3D point4) {
-        /* Ñ­»·Ìå */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½ */
         const std::vector<Vector3D> points   = {point1, point2, point3, point4};
         std::vector<double>         bulges   = {0.0000000000000000, 0.0000000000000000, 0.0000000000000000, 0.0000000000000000};
         Vector3D                    extusion = Vector3D{0.0000000000000000, 0.0000000000000000, 2850.0000000000000};
         auto                        cycleTag = scene.createExtrude(points, bulges, extusion);
 
-        /* Ñ­»·Ìå ZÖáÆ«ÒÆ -2900 */
+        /* Ñ­ï¿½ï¿½ï¿½ï¿½ Zï¿½ï¿½Æ«ï¿½ï¿½ -2900 */
         Vector3D direction = Vector3D{0, 0, 1};
         double   offset    = -2900;
         scene.offset(cycleTag, direction, offset);
 
-        /* Ìå1ºÍÑ­»·Ìå²¼¶û²î */
+        /* ï¿½ï¿½1ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½å²¼ï¿½ï¿½ï¿½ï¿½ */
         scene.booleanDifference(tag1, cycleTag);
     };
 
@@ -981,7 +981,7 @@ void test()
     // output_blobtree(tag1);
 #endif // _DEBUG
 
-    /* »ñÈ¡Ìå1 ²¼¶ûÇ°ºóµÄÌå»ý²îºÍÃæ»ý²î */
+    /* ï¿½ï¿½È¡ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     areaDifference   = after.first - before.first;
     volumeDifference = after.second - before.second;
     std::cout << areaDifference << ", " << volumeDifference << std::endl;

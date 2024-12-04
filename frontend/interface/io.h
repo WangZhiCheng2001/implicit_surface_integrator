@@ -5,6 +5,14 @@
 #include <blobtree.h>
 #include <macros.h>
 
+typedef struct {
+    void* desc;
+} copyable_descriptor_t;
+
+typedef struct {
+    void* desc;
+} movable_descriptor_t;
+
 EXTERN_C_BEGIN
 
 /**
@@ -13,7 +21,8 @@ EXTERN_C_BEGIN
  * @param[in] type		The type of the primitive
  * @return The virtual node (indices) pointing to the created primitive node
  */
-API virtual_node_t blobtree_new_node(const void* desc, primitive_type type);
+API virtual_node_t blobtree_new_node_by_copy(const copyable_descriptor_t desc, primitive_type type);
+API virtual_node_t blobtree_new_node_by_move(const movable_descriptor_t desc, primitive_type type);
 
 /**
  * @brief Union two virtual node, result will be writen to first node
@@ -107,6 +116,11 @@ API bool virtual_node_remove_child(const virtual_node_t* node, const virtual_nod
  * @param[in] desc		The new descriptor
  * @return True if the operation is successful
  */
-API bool virtual_node_replace_primitive(const virtual_node_t* node, const void* desc, primitive_type type);
+API bool virtual_node_replace_primitive_by_copy(const virtual_node_t*       node,
+                                                const copyable_descriptor_t desc,
+                                                primitive_type              type);
+API bool virtual_node_replace_primitive_by_move(const virtual_node_t*      node,
+                                                const movable_descriptor_t desc,
+                                                primitive_type             type);
 
 EXTERN_C_END

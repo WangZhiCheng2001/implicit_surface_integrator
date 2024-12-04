@@ -22,14 +22,7 @@ void output_blobtree(virtual_node_t node);
 // APIs
 // ======================================================================================================
 
-BPE_API double evaluate(const constant_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const plane_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const sphere_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const cylinder_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const cone_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const box_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const mesh_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
-BPE_API double evaluate(const extrude_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point);
+BPE_API double evaluate(uint32_t index, const Eigen::Ref<const Eigen::Vector3d>& point);
 
 // Basic Operations
 
@@ -43,6 +36,8 @@ BPE_API const aabb_t&           get_aabb(uint32_t index) noexcept;
 
 BPE_API void free_sub_blobtree(uint32_t index) noexcept;
 
+BPE_API void clear_blobtree() noexcept;
+
 // Geometry Generation
 
 BPE_API virtual_node_t blobtree_new_virtual_node(const constant_descriptor_t& desc);
@@ -53,6 +48,14 @@ BPE_API virtual_node_t blobtree_new_virtual_node(const cone_descriptor_t& desc);
 BPE_API virtual_node_t blobtree_new_virtual_node(const box_descriptor_t& desc);
 BPE_API virtual_node_t blobtree_new_virtual_node(const mesh_descriptor_t& desc);
 BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const constant_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const plane_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const sphere_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const cylinder_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const cone_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const box_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const mesh_descriptor_t&& desc);
+BPE_API virtual_node_t blobtree_new_virtual_node(const extrude_descriptor_t&& desc);
 
 BPE_API void blobtree_free_virtual_node(const virtual_node_t& node);
 
@@ -83,3 +86,11 @@ BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const co
 BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const box_descriptor_t& desc);
 BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const mesh_descriptor_t& desc);
 BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const extrude_descriptor_t& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const constant_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const plane_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const sphere_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const cylinder_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const cone_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const box_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const mesh_descriptor_t&& desc);
+BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const extrude_descriptor_t&& desc);

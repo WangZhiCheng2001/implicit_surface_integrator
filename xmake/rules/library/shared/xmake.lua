@@ -37,6 +37,28 @@ rule("library.distribute.header")
     end)
 rule_end()
 
+rule("library.force.distribute.header")
+    after_build(function (target)
+        local headers = target:extraconf("rules", "library.force.distribute.header", "headers")
+        local outputdir = path.join(target:targetdir(), "..", "include")
+        if has_config("shipping_one") then
+            for _, filepath in ipairs(os.files(headers)) do 
+                local file = io.readfile(filepath)
+
+                local remove_unwanted_header1 = string.gsub(file, "#include <macros.h>", "")
+                local remove_unwanted_header2 = string.gsub(remove_unwanted_header1, "#include \"macros.h\"", "")
+                local replace_extern1 = string.gsub(remove_unwanted_header2, "EXTERN_C_BEGIN", "extern \"C\" {")
+                local replace_extern2 = string.gsub(replace_extern1, "EXTERN_C_END", "}")
+                local replace_extern3 = string.gsub(replace_extern2, "EXTERN_C", "extern \"C\"")
+                local replace_api1 = string.gsub(replace_extern3, "%a+_API", "__declspec(dllimport)")
+                local replace_api2 = string.gsub(replace_api1, "API", "__declspec(dllimport)")
+                
+                io.writefile(path.join(outputdir, path.filename(filepath)), replace_api2)
+            end
+        end
+    end)
+rule_end()
+
 rule("library.shared.internal")
     on_load(function (target)
         local api = target:extraconf("rules", "library.shared.internal", "api")

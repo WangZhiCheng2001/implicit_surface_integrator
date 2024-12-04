@@ -85,35 +85,8 @@ solve_result_t ImplicitSurfaceNetworkProcessor::run(const virtual_node_t& tree_n
         for (uint32_t i = 0; i < num_vert; ++i) {
             const auto& point = background_vertices[i];
             for (uint32_t j = 0; j < num_funcs; ++j) {
-                const auto& primitive = get_primitive_node(static_cast<uint32_t>(j));
-                switch (primitive.type) {
-                    case PRIMITIVE_TYPE_CONSTANT:
-                        vertex_scalar_values[i][j] = evaluate(*(const constant_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_PLANE:
-                        vertex_scalar_values[i][j] = evaluate(*(const plane_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_SPHERE:
-                        vertex_scalar_values[i][j] = evaluate(*(const sphere_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_CYLINDER:
-                        vertex_scalar_values[i][j] = evaluate(*(const cylinder_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_CONE:
-                        vertex_scalar_values[i][j] = evaluate(*(const cone_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_BOX:
-                        vertex_scalar_values[i][j] = evaluate(*(const box_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_MESH:
-                        vertex_scalar_values[i][j] = evaluate(*(const mesh_descriptor_t*)primitive.desc, point);
-                        break;
-                    case PRIMITIVE_TYPE_EXTRUDE:
-                        vertex_scalar_values[i][j] = evaluate(*(const extrude_descriptor_t*)primitive.desc, point);
-                        break;
-                }
-
-                const auto sign = scalar_field_sign(vertex_scalar_values[i][j]);
+                vertex_scalar_values[i][j] = evaluate(j, point);
+                const auto sign            = scalar_field_sign(vertex_scalar_values[i][j]);
                 switch (sign) {
                     case -1: is_negative_scalar_field_sign[i * num_funcs + j] = true; break;
                     case 0:

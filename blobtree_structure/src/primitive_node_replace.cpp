@@ -48,7 +48,15 @@ PRIM_NODE_COPY_REPLACER(cylinder, CYLINDER, plain_desc_copy_constructor, cylinde
 PRIM_NODE_COPY_REPLACER(cone, CONE, plain_desc_copy_constructor, cone_aabb_initer);
 PRIM_NODE_COPY_REPLACER(box, BOX, plain_desc_copy_constructor, box_aabb_initer);
 PRIM_NODE_COPY_REPLACER(mesh, MESH, mesh_desc_copy_constructor, mesh_aabb_initer);
-PRIM_NODE_COPY_REPLACER(extrude, EXTRUDE, extrude_desc_copy_constructor, extrude_aabb_initer);
+PRIM_NODE_COPY_REPLACER(extrude_polyline,
+                        EXTRUDE_POLYLINE,
+                        extrude_polyline_desc_copy_constructor,
+                        extrude_polyline_aabb_initer);
+PRIM_NODE_COPY_REPLACER(extrude_arcline, EXTRUDE_ARCLINE, extrude_arcline_desc_copy_constructor, extrude_arcline_aabb_initer);
+PRIM_NODE_COPY_REPLACER(extrude_helixline,
+                        EXTRUDE_HELIXLINE,
+                        extrude_helixline_desc_copy_constructor,
+                        extrude_helixline_aabb_initer);
 
 #undef PRIM_NODE_COPY_REPLACER
 
@@ -72,6 +80,14 @@ PRIM_NODE_MOVE_REPLACER(cylinder, CYLINDER, plain_desc_move_constructor, cylinde
 PRIM_NODE_MOVE_REPLACER(cone, CONE, plain_desc_move_constructor, cone_aabb_initer);
 PRIM_NODE_MOVE_REPLACER(box, BOX, plain_desc_move_constructor, box_aabb_initer);
 PRIM_NODE_MOVE_REPLACER(mesh, MESH, mesh_desc_move_constructor, mesh_aabb_initer);
-PRIM_NODE_MOVE_REPLACER(extrude, EXTRUDE, extrude_desc_move_constructor, extrude_aabb_initer);
+PRIM_NODE_MOVE_REPLACER(extrude_polyline,
+                        EXTRUDE_POLYLINE,
+                        extrude_polyline_desc_move_constructor,
+                        extrude_polyline_aabb_initer);
+PRIM_NODE_MOVE_REPLACER(extrude_arcline, EXTRUDE_ARCLINE, extrude_arcline_desc_move_constructor, extrude_arcline_aabb_initer);
+PRIM_NODE_MOVE_REPLACER(extrude_helixline,
+                        EXTRUDE_HELIXLINE,
+                        extrude_helixline_desc_move_constructor,
+                        extrude_helixline_aabb_initer);
 
 #undef PRIM_NODE_MOVE_REPLACER

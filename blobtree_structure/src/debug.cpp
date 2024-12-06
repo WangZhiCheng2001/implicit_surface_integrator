@@ -79,36 +79,22 @@ void output_primitive_node(const primitive_node_t& node)
 
             std::cout << "\tfaces number: " << desc->face_number << std::endl;
             for (int i = 0; i < desc->face_number; i++) {
-                auto begin  = desc->faces[i][0];
-                auto length = desc->faces[i][1];
+                auto begin  = desc->faces[i].begin_index;
+                auto length = desc->faces[i].vertex_count;
                 std::cout << "\t\t<" << begin << ", " << length << "> : ";
                 for (int j = begin; j < begin + length; j++) { std::cout << desc->indices[j] << " "; }
                 std::cout << std::endl;
             }
             break;
         }
-        case PRIMITIVE_TYPE_EXTRUDE: {
-            auto desc = static_cast<extrude_descriptor_t*>(node.desc);
-            std::cout << "extrude:" << std::endl;
-            std::cout << "\tedges number: " << desc->edges_number << std::endl;
-            std::cout << "\textusion: ";
-            output_point(desc->extusion);
-
-            std::cout << "\tpoints: " << std::endl;
-            for (int i = 0; i < desc->edges_number; i++) {
-                std::cout << "\t\t( " << desc->points[i].x << ", " << desc->points[i].y << ", " << desc->points[i].z << " )"
-                          << std::endl;
-            }
-
-            std::cout << "\tbulges: " << std::endl;
-            for (int i = 0; i < desc->edges_number; i++) { std::cout << "\t\t" << desc->bulges[i] << std::endl; }
-            break;
-        }
+        // TODO : add extrude body output
         default: {
             break;
         }
     }
 }
+
+#include <map>
 
 void output_blobtree(virtual_node_t node)
 {
@@ -132,18 +118,18 @@ void output_blobtree(virtual_node_t node)
         auto begin = now.front();
         now.pop();
 
-        if (is_primitive_node(begin)) {
+        if (node_fetch_is_primitive(begin)) {
             std::cout << index[primitives[node_fetch_primitive_index(begin)].type] << "\t\t";
             temp.push_back(primitives[node_fetch_primitive_index(begin)]);
         } else {
-            auto op = (uint32_t)node_fetch_operation(begin);
-            if (op == 0) {
+            auto op = node_fetch_operation(begin);
+            if (op == eNodeOperation::unionOp) {
                 std::cout << "or"
                           << "\t\t";
-            } else if (op == 1) {
+            } else if (op == eNodeOperation::intersectionOp) {
                 std::cout << "and"
                           << "\t\t";
-            } else if (op == 2) {
+            } else if (op == eNodeOperation::differenceOp) {
                 std::cout << "sub"
                           << "\t\t";
             }

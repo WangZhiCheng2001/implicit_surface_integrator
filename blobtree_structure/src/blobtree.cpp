@@ -108,7 +108,8 @@ BPE_API void clear_blobtree() noexcept
 //             case eNodeOperation::unionOp: {
 //                 if (left_child_in_out_flag == eNodeLocation::in || right_child_in_out_flag == eNodeLocation::in) {
 //                     node_in_out_flag = eNodeLocation::in;
-//                 } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag == eNodeLocation::out) {
+//                 } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag ==
+//                 eNodeLocation::out) {
 //                     node_in_out_flag = eNodeLocation::out;
 //                 } else {
 //                     return false;
@@ -118,7 +119,8 @@ BPE_API void clear_blobtree() noexcept
 //             case eNodeOperation::intersectionOp: {
 //                 if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::in) {
 //                     node_in_out_flag = eNodeLocation::in;
-//                 } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::out) {
+//                 } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag ==
+//                 eNodeLocation::out) {
 //                     node_in_out_flag = eNodeLocation::out;
 //                 } else {
 //                     return false;
@@ -430,9 +432,28 @@ void offset_primitive(primitive_node_t& node, const Eigen::Vector3d& offset)
             for (int i = 0; i < desc->point_number; i++) { offset_point(desc->points[i], offset); }
             break;
         }
-        case PRIMITIVE_TYPE_EXTRUDE: {
-            auto desc = static_cast<extrude_descriptor_t*>(node.desc);
-            for (int i = 0; i < desc->edges_number; i++) { offset_point(desc->points[i], offset); }
+        case PRIMITIVE_TYPE_EXTRUDE_POLYLINE: {
+            auto desc = static_cast<extrude_polyline_descriptor_t*>(node.desc);
+            for (int i = 0; i < desc->profile_number; i++) {
+                for (int j = 0; j < desc->profiles[i].point_number; j++) { offset_point(desc->profiles[i].points[j], offset); }
+            }
+
+            for (int i = 0; i < desc->axis.point_number; i++) { offset_point(desc->axis.points[i], offset); }
+            break;
+        }
+
+        case PRIMITIVE_TYPE_EXTRUDE_ARCLINE: {
+            auto desc = static_cast<extrude_arcline_descriptor_t*>(node.desc);
+            for (int i = 0; i < desc->profile_number; i++) {
+                for (int j = 0; j < desc->profiles[i].point_number; j++) { offset_point(desc->profiles[i].points[j], offset); }
+            }
+            break;
+        }
+        case PRIMITIVE_TYPE_EXTRUDE_HELIXLINE: {
+            auto desc = static_cast<extrude_helixline_descriptor_t*>(node.desc);
+            for (int i = 0; i < desc->profile_number; i++) {
+                for (int j = 0; j < desc->profiles[i].point_number; j++) { offset_point(desc->profiles[i].points[j], offset); }
+            }
             break;
         }
         default: {

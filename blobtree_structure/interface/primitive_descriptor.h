@@ -13,7 +13,9 @@ typedef enum {
     PRIMITIVE_TYPE_CONE,
     PRIMITIVE_TYPE_BOX,
     PRIMITIVE_TYPE_MESH,
-    PRIMITIVE_TYPE_EXTRUDE
+    PRIMITIVE_TYPE_EXTRUDE_POLYLINE,
+    PRIMITIVE_TYPE_EXTRUDE_ARCLINE,
+    PRIMITIVE_TYPE_EXTRUDE_HELIXLINE
 } primitive_type;
 
 // Placeholder, currently used to represent empty body
@@ -68,8 +70,45 @@ typedef struct {
 
 // Extrude descriptor
 typedef struct {
-    uint32_t        edges_number; // The edge number in the bottom face
-    raw_vector3d_t  extusion;     // The offset vector
-    raw_vector3d_t* points;       // The points of the bottom face
-    double*         bulges;       // The bulge of each edge
-} extrude_descriptor_t;
+    uint32_t        point_number;     // The point number of the polyline
+    raw_vector3d_t* points;           // The point of the polyline
+    uint32_t        bulge_number;     // The bulge number of the polyline
+    double*         bulges;           // The bulge of each edge
+    raw_vector3d_t  reference_normal; // The reference normal of the polyline
+    bool            is_close;         // Whether the polyline is close
+} polyline_descriptor_t;
+
+typedef struct {
+    raw_vector3d_t start;            // The start point of the arc line
+    raw_vector3d_t end;              // The end point of the arc line
+    double         bulge;            // The bugle of the arc line
+    raw_vector3d_t reference_normal; // The reference normal of the arcline
+} arcline_descriptor_t;
+
+typedef struct {
+    raw_vector3d_t axis_start;        // The start point of the helix line
+    raw_vector3d_t axis_end;          // The end point of the helix line
+    double         radius;            // The radius of the helix line
+    double         advance_per_round; // he advance per round of the helix line
+    raw_vector3d_t start_direction;   // The direction from axisStart to start of the helix line
+} helixline_descriptor_t;
+
+// Note : In profiles, The first polyline is outer boundary, and the ohters is internal holes
+
+typedef struct {
+    int                    profile_number; // The profiles number of the extruded solid
+    polyline_descriptor_t* profiles;       // The profiles of the extruded solid
+    polyline_descriptor_t  axis;           // The axis of the extruded solid
+} extrude_polyline_descriptor_t;
+
+typedef struct {
+    int                    profile_number; // The profiles number of the extruded solid
+    polyline_descriptor_t* profiles;       // The profiles of the extruded solid
+    arcline_descriptor_t   axis;           // The axis of the extruded solid
+} extrude_arcline_descriptor_t;
+
+typedef struct {
+    int                    profile_number; // The profiles number of the extruded solid
+    polyline_descriptor_t* profiles;       // The profiles of the extruded solid
+    helixline_descriptor_t axis;           // The axis of the extruded solid
+} extrude_helixline_descriptor_t;

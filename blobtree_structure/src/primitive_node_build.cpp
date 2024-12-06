@@ -58,7 +58,18 @@ PRIM_NODE_COPY_CONSTRUCTOR(cylinder, CYLINDER, plain_desc_copy_constructor, cyli
 PRIM_NODE_COPY_CONSTRUCTOR(cone, CONE, plain_desc_copy_constructor, cone_aabb_initer);
 PRIM_NODE_COPY_CONSTRUCTOR(box, BOX, plain_desc_copy_constructor, box_aabb_initer);
 PRIM_NODE_COPY_CONSTRUCTOR(mesh, MESH, mesh_desc_copy_constructor, mesh_aabb_initer);
-PRIM_NODE_COPY_CONSTRUCTOR(extrude, EXTRUDE, extrude_desc_copy_constructor, extrude_aabb_initer);
+PRIM_NODE_COPY_CONSTRUCTOR(extrude_polyline,
+                           EXTRUDE_POLYLINE,
+                           extrude_polyline_desc_copy_constructor,
+                           extrude_polyline_aabb_initer);
+PRIM_NODE_COPY_CONSTRUCTOR(extrude_arcline,
+                           EXTRUDE_ARCLINE,
+                           extrude_arcline_desc_copy_constructor,
+                           extrude_arcline_aabb_initer);
+PRIM_NODE_COPY_CONSTRUCTOR(extrude_helixline,
+                           EXTRUDE_HELIXLINE,
+                           extrude_helixline_desc_copy_constructor,
+                           extrude_helixline_aabb_initer);
 
 #undef PRIM_NODE_COPY_CONSTRUCTOR
 
@@ -81,6 +92,17 @@ PRIM_NODE_MOVE_CONSTRUCTOR(cylinder, CYLINDER, plain_desc_move_constructor, cyli
 PRIM_NODE_MOVE_CONSTRUCTOR(cone, CONE, plain_desc_move_constructor, cone_aabb_initer);
 PRIM_NODE_MOVE_CONSTRUCTOR(box, BOX, plain_desc_move_constructor, box_aabb_initer);
 PRIM_NODE_MOVE_CONSTRUCTOR(mesh, MESH, mesh_desc_move_constructor, mesh_aabb_initer);
-PRIM_NODE_MOVE_CONSTRUCTOR(extrude, EXTRUDE, extrude_desc_move_constructor, extrude_aabb_initer);
+PRIM_NODE_MOVE_CONSTRUCTOR(extrude_polyline,
+                           EXTRUDE_POLYLINE,
+                           extrude_polyline_desc_move_constructor,
+                           extrude_polyline_aabb_initer);
+PRIM_NODE_MOVE_CONSTRUCTOR(extrude_arcline,
+                           EXTRUDE_ARCLINE,
+                           extrude_arcline_desc_move_constructor,
+                           extrude_arcline_aabb_initer);
+PRIM_NODE_MOVE_CONSTRUCTOR(extrude_helixline,
+                           EXTRUDE_HELIXLINE,
+                           extrude_helixline_desc_move_constructor,
+                           extrude_helixline_aabb_initer);
 
 #undef PRIM_NODE_MOVE_CONSTRUCTOR

@@ -3,10 +3,10 @@
 #include <iterator>
 #include <type_traits>
 #include <variant>
+#include <algorithm>
+#include <execution>
 
-#include <oneapi/dpl/execution>
-#include <oneapi/dpl/algorithm>
-#include <oneapi/dpl/iterator>
+#include <iterator/counting_iterator.hpp>
 
 // HINT: c++17 does not support std::is_constant_evaluated() yet, so we use __builtin_is_constant_evaluated() __implemented by
 // each compiler instead. and to be said, __builtin_is_constant_evaluated() is tested to be valid under c++17 with gcc, clang
@@ -19,24 +19,19 @@
 
 namespace detail
 {
-using execution_policy_variant_t = std::variant<dpl::execution::sequenced_policy,
-                                                dpl::execution::unsequenced_policy,
-                                                dpl::execution::parallel_policy,
-                                                dpl::execution::parallel_unsequenced_policy>;
+using execution_policy_variant_t = std::
+    variant<std::execution::sequenced_policy, std::execution::parallel_policy, std::execution::parallel_unsequenced_policy>;
 
 template <typename _Tp>
 auto execution_policy_selector(_Tp N) -> execution_policy_variant_t
 {
     static_assert(!std::is_floating_point_v<_Tp>);
     if (N <= 16)
-        if (N % 4 == 0)
-            return dpl::execution::unseq;
-        else
-            return dpl::execution::seq;
+        return std::execution::seq;
     else if (N % 4 == 0)
-        return dpl::execution::par_unseq;
+        return std::execution::par_unseq;
     else
-        return dpl::execution::par;
+        return std::execution::par;
 }
 
 template <typename _Tp>
@@ -44,9 +39,9 @@ auto execution_policy_selector_simd_only(_Tp N) -> execution_policy_variant_t
 {
     static_assert(!std::is_floating_point_v<_Tp>);
     if (N <= 16)
-        return dpl::execution::unseq;
+        return std::execution::seq;
     else
-        return dpl::execution::par_unseq;
+        return std::execution::par_unseq;
 }
 
 static double thread_overload_factor = 1.5;
@@ -73,11 +68,8 @@ inline void for_loop(_Tp first, _Tp last, UnaryFunc f)
         policy = detail::execution_policy_selector(last - first);
     else
         policy = detail::execution_policy_selector_simd_only(last - first);
-    std::visit(
-        [&](auto&& exec) {
-            dpl::for_each(exec, oneapi::dpl::counting_iterator<_Tp>(first), oneapi::dpl::counting_iterator<_Tp>(last), f);
-        },
-        policy);
+    std::visit([&](auto&& exec) { std::for_each(exec, counting_iterator<_Tp>(first), counting_iterator<_Tp>(last), f); },
+               policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename UnaryFunc>
@@ -88,7 +80,7 @@ inline void for_each(InputIt first, InputIt last, UnaryFunc f)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    std::visit([&](auto&& exec) { dpl::for_each(exec, first, last, f); }, policy);
+    std::visit([&](auto&& exec) { std::for_each(exec, first, last, f); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
@@ -99,7 +91,7 @@ inline ForwardIt min_element(ForwardIt first, ForwardIt last)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::min_element(exec, first, last); }, policy);
+    return std::visit([&](auto&& exec) { return std::min_element(exec, first, last); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
@@ -110,7 +102,7 @@ inline ForwardIt max_element(ForwardIt first, ForwardIt last)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::max_element(exec, first, last); }, policy);
+    return std::visit([&](auto&& exec) { return std::max_element(exec, first, last); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
@@ -121,7 +113,7 @@ inline void fill(ForwardIt first, ForwardIt last, const typename std::iterator_t
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    std::visit([&](auto&& exec) { dpl::fill(exec, first, last, value); }, policy);
+    std::visit([&](auto&& exec) { std::fill(exec, first, last, value); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename OutputIt>
@@ -132,7 +124,7 @@ inline OutputIt fill_n(OutputIt first, std::size_t count, const typename std::it
         policy = detail::execution_policy_selector(count);
     else
         policy = detail::execution_policy_selector_simd_only(count);
-    return std::visit([&](auto&& exec) { return dpl::fill_n(exec, first, count, value); }, policy);
+    return std::visit([&](auto&& exec) { return std::fill_n(exec, first, count, value); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename OutputIt>
@@ -143,7 +135,7 @@ inline OutputIt copy(InputIt first, InputIt last, OutputIt d_first)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::copy(exec, first, last, d_first); }, policy);
+    return std::visit([&](auto&& exec) { return std::copy(exec, first, last, d_first); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt1, typename ForwardIt2>
@@ -154,7 +146,7 @@ inline ForwardIt2 swap_ranges(ForwardIt1 first1, ForwardIt1 last1, ForwardIt2 fi
         policy = detail::execution_policy_selector(std::distance(first1, last1));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first1, last1));
-    return std::visit([&](auto&& exec) { return dpl::swap_ranges(exec, first1, last1, first2); }, policy);
+    return std::visit([&](auto&& exec) { return std::swap_ranges(exec, first1, last1, first2); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt>
@@ -166,7 +158,7 @@ inline typename std::iterator_traits<InputIt>::difference_type
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::count(exec, first, last, value); }, policy);
+    return std::visit([&](auto&& exec) { return std::count(exec, first, last, value); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt>
@@ -180,7 +172,7 @@ inline void replace(InputIt                                                   fi
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    std::visit([&](auto&& exec) { dpl::replace(exec, first, last, old_value, new_value); }, policy);
+    std::visit([&](auto&& exec) { std::replace(exec, first, last, old_value, new_value); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt>
@@ -191,7 +183,7 @@ inline InputIt find(InputIt first, InputIt last, const typename std::iterator_tr
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::find(exec, first, last, value); }, policy);
+    return std::visit([&](auto&& exec) { return std::find(exec, first, last, value); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename UnaryPred>
@@ -202,7 +194,7 @@ inline InputIt find_if(InputIt first, InputIt last, UnaryPred p)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::find_if(exec, first, last, p); }, policy);
+    return std::visit([&](auto&& exec) { return std::find_if(exec, first, last, p); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename UnaryPred>
@@ -213,7 +205,7 @@ inline bool all_of(InputIt first, InputIt last, UnaryPred pred)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::all_of(exec, first, last, pred); }, policy);
+    return std::visit([&](auto&& exec) { return std::all_of(exec, first, last, pred); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename UnaryPred>
@@ -224,7 +216,7 @@ inline bool any_of(InputIt first, InputIt last, UnaryPred pred)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::any_of(exec, first, last, pred); }, policy);
+    return std::visit([&](auto&& exec) { return std::any_of(exec, first, last, pred); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename UnaryPred>
@@ -235,7 +227,7 @@ inline bool none_of(InputIt first, InputIt last, UnaryPred pred)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::none_of(exec, first, last, pred); }, policy);
+    return std::visit([&](auto&& exec) { return std::none_of(exec, first, last, pred); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename T, typename BinaryOp>
@@ -246,7 +238,7 @@ inline T reduce(InputIt first, InputIt last, T init, BinaryOp op)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::reduce(exec, first, last, init, op); }, policy);
+    return std::visit([&](auto&& exec) { return std::reduce(exec, first, last, init, op); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename InputIt, typename OutputIt, typename UnaryOp>
@@ -257,7 +249,7 @@ inline OutputIt transform(InputIt first, InputIt last, OutputIt d_first, UnaryOp
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::transform(exec, first, last, d_first, unary_op); }, policy);
+    return std::visit([&](auto&& exec) { return std::transform(exec, first, last, d_first, unary_op); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all,
@@ -272,7 +264,7 @@ inline OutputIt transform(InputIt1 first1, InputIt1 last1, InputIt2 first2, Outp
         policy = detail::execution_policy_selector(std::distance(first1, last1));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first1, last1));
-    return std::visit([&](auto&& exec) { return dpl::transform(exec, first1, last1, first2, d_first, binary_op); }, policy);
+    return std::visit([&](auto&& exec) { return std::transform(exec, first1, last1, first2, d_first, binary_op); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all,
@@ -288,7 +280,7 @@ inline T transform_reduce(InputIt1 first1, InputIt1 last1, InputIt2 first2, T in
         policy = detail::execution_policy_selector(std::distance(first1, last1));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first1, last1));
-    return std::visit([&](auto&& exec) { return dpl::transform_reduce(exec, first1, last1, first2, init, reduce, transform); },
+    return std::visit([&](auto&& exec) { return std::transform_reduce(exec, first1, last1, first2, init, reduce, transform); },
                       policy);
 }
 
@@ -304,7 +296,7 @@ inline T transform_reduce(InputIt1 first, InputIt1 last, T init, BinaryOp reduce
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::transform_reduce(exec, first, last, init, reduce, transform); }, policy);
+    return std::visit([&](auto&& exec) { return std::transform_reduce(exec, first, last, init, reduce, transform); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all,
@@ -319,7 +311,7 @@ inline OutputIt inclusive_scan(InputIt first, InputIt last, OutputIt d_first, T 
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::inclusive_scan(exec, first, last, d_first, binary_op, init); }, policy);
+    return std::visit([&](auto&& exec) { return std::inclusive_scan(exec, first, last, d_first, binary_op, init); }, policy);
 }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all,
@@ -334,30 +326,30 @@ inline OutputIt exclusive_scan(InputIt first, InputIt last, OutputIt d_first, T 
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::exclusive_scan(exec, first, last, d_first, init, binary_op); }, policy);
+    return std::visit([&](auto&& exec) { return std::exclusive_scan(exec, first, last, d_first, init, binary_op); }, policy);
 }
 
-template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
-inline ForwardIt shift_left(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type n)
-{
-    detail::execution_policy_variant_t policy;
-    if constexpr (Policy == ExecutionPolicySelector::all)
-        policy = detail::execution_policy_selector(std::distance(first, last));
-    else
-        policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::shift_left(exec, first, last, n); }, policy);
-}
+// template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
+// inline ForwardIt shift_left(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type n)
+// {
+//     detail::execution_policy_variant_t policy;
+//     if constexpr (Policy == ExecutionPolicySelector::all)
+//         policy = detail::execution_policy_selector(std::distance(first, last));
+//     else
+//         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
+//     return std::visit([&](auto&& exec) { return std::shift_left(exec, first, last, n); }, policy);
+// }
 
-template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
-inline ForwardIt shift_right(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type n)
-{
-    detail::execution_policy_variant_t policy;
-    if constexpr (Policy == ExecutionPolicySelector::all)
-        policy = detail::execution_policy_selector(std::distance(first, last));
-    else
-        policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::shift_right(exec, first, last, n); }, policy);
-}
+// template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
+// inline ForwardIt shift_right(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type n)
+// {
+//     detail::execution_policy_variant_t policy;
+//     if constexpr (Policy == ExecutionPolicySelector::all)
+//         policy = detail::execution_policy_selector(std::distance(first, last));
+//     else
+//         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
+//     return std::visit([&](auto&& exec) { return std::shift_right(exec, first, last, n); }, policy);
+// }
 
 template <ExecutionPolicySelector Policy = ExecutionPolicySelector::all, typename ForwardIt>
 ForwardIt rotate(ForwardIt first, ForwardIt middle, ForwardIt last)
@@ -367,6 +359,6 @@ ForwardIt rotate(ForwardIt first, ForwardIt middle, ForwardIt last)
         policy = detail::execution_policy_selector(std::distance(first, last));
     else
         policy = detail::execution_policy_selector_simd_only(std::distance(first, last));
-    return std::visit([&](auto&& exec) { return dpl::rotate(exec, first, middle, last); }, policy);
+    return std::visit([&](auto&& exec) { return std::rotate(exec, first, middle, last); }, policy);
 }
 } // namespace algorithm

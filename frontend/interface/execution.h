@@ -21,6 +21,9 @@ typedef struct {
 } solve_result_t;
 
 EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node);
+// clear the cache of previous solver results
+// CAUTION: output result should be invalid after calling this function
+EXTERN_C API void           clear_solver_cache();
 // output time usage statistics to console
 EXTERN_C API void           print_statistics();
 EXTERN_C API void           clear_statistics();

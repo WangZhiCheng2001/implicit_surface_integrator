@@ -37,14 +37,14 @@ virtual_node_t insert_primitive_node(T&& desc, __desc_constructor&& desc_constru
     return push_primitive_node(std::move(node), std::move(aabb));
 }
 
-BPE_API void blobtree_free_virtual_node(const virtual_node_t& node) { free_sub_blobtree(node.main_index); }
+BS_API void blobtree_free_virtual_node(const virtual_node_t& node) { free_sub_blobtree(node.main_index); }
 
 // ==================================================================================================
 // copy constrctor
 // ==================================================================================================
 
 #define PRIM_NODE_COPY_CONSTRUCTOR(low_name, high_name, desc_constructor, aabb_initer)                                     \
-    BPE_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t& desc)                                  \
+    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t& desc)                                  \
     {                                                                                                                      \
         return insert_primitive_node<PRIMITIVE_TYPE_##high_name>(desc,                                                     \
                                                                  std::bind(desc_constructor, desc, std::placeholders::_1), \
@@ -67,7 +67,7 @@ PRIM_NODE_COPY_CONSTRUCTOR(extrude, EXTRUDE, extrude_desc_copy_constructor, extr
 // ==================================================================================================
 
 #define PRIM_NODE_MOVE_CONSTRUCTOR(low_name, high_name, desc_constructor, aabb_initer)                                     \
-    BPE_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t&& desc)                                 \
+    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t&& desc)                                 \
     {                                                                                                                      \
         return insert_primitive_node<PRIMITIVE_TYPE_##high_name>(desc,                                                     \
                                                                  std::bind(desc_constructor, desc, std::placeholders::_1), \

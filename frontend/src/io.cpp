@@ -4,6 +4,8 @@
 
 EXTERN_C_BEGIN
 
+API void free_blobtree() { clear_blobtree(); }
+
 API virtual_node_t blobtree_new_node_by_copy(const copyable_descriptor_t desc, primitive_type type)
 {
     switch (type) {

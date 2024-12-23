@@ -21,6 +21,8 @@ EXTERN_C API void update_environment(const virtual_node_t* tree_node) { g_proces
 
 EXTERN_C API solve_result_t execute_solver(const virtual_node_t* tree_node) { return g_processor.run(*tree_node); }
 
+EXTERN_C API void clear_solver_cache() { g_processor.clear(); }
+
 EXTERN_C API void clear_statistics() { g_timers_manager.clear(); }
 
 EXTERN_C API void print_statistics() { g_timers_manager.print(); }

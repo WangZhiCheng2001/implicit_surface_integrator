@@ -15,31 +15,31 @@ std::stack<uint32_t, std::deque<uint32_t, tbb::tbb_allocator<uint32_t>>> free_st
  * basic functionalities
  * ============================================================================================= */
 
-BPE_API size_t blobtree_get_node_count(uint32_t index) noexcept { return structures[index].nodes.size(); }
+BS_API size_t blobtree_get_node_count(uint32_t index) noexcept { return structures[index].nodes.size(); }
 
-BPE_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes(uint32_t index) noexcept
+BS_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes(uint32_t index) noexcept
 {
     return structures[index].leaf_index;
 }
 
-BPE_API node_t& blobtree_get_node(const virtual_node_t& node) noexcept
+BS_API node_t& blobtree_get_node(const virtual_node_t& node) noexcept
 {
     return structures[node.main_index].nodes[node.inner_index];
 }
 
-BPE_API size_t get_primitive_count() noexcept
+BS_API size_t get_primitive_count() noexcept
 {
     assert(primitives.size() == aabbs.size());
     return primitives.size();
 }
 
-BPE_API const primitive_node_t& get_primitive_node(uint32_t index) noexcept
+BS_API const primitive_node_t& get_primitive_node(uint32_t index) noexcept
 {
     assert(index < primitives.size());
     return primitives[index];
 }
 
-BPE_API const aabb_t& get_aabb(uint32_t index) noexcept
+BS_API const aabb_t& get_aabb(uint32_t index) noexcept
 {
     assert(index < aabbs.size());
     return aabbs[index];
@@ -74,13 +74,13 @@ virtual_node_t copy(virtual_node_t old_node, virtual_node_t new_node)
     return virtual_node_t{new_node.main_index, old_node.inner_index + size};
 }
 
-BPE_API void free_sub_blobtree(uint32_t index) noexcept
+BS_API void free_sub_blobtree(uint32_t index) noexcept
 {
     // 这里尽量打标记，延迟修改和删除
     free_structure_list.push(index);
 }
 
-BPE_API void clear_blobtree() noexcept
+BS_API void clear_blobtree() noexcept
 {
     structures.clear();
     aabbs.clear();
@@ -227,7 +227,7 @@ BPE_API void clear_blobtree() noexcept
  * tree node operations
  * ============================================================================================= */
 
-BPE_API bool virtual_node_set_parent(const virtual_node_t& node, const virtual_node_t& parent)
+BS_API bool virtual_node_set_parent(const virtual_node_t& node, const virtual_node_t& parent)
 {
     auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
     // The node's parent is not empty
@@ -261,7 +261,7 @@ BPE_API bool virtual_node_set_parent(const virtual_node_t& node, const virtual_n
     return false;
 }
 
-BPE_API bool virtual_node_set_left_child(const virtual_node_t& node, const virtual_node_t& child)
+BS_API bool virtual_node_set_left_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
@@ -289,7 +289,7 @@ BPE_API bool virtual_node_set_left_child(const virtual_node_t& node, const virtu
     return true;
 }
 
-BPE_API bool virtual_node_set_right_child(const virtual_node_t& node, const virtual_node_t& child)
+BS_API bool virtual_node_set_right_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     auto& node_in_tree = structures[node.main_index].nodes[node.inner_index];
 
@@ -317,7 +317,7 @@ BPE_API bool virtual_node_set_right_child(const virtual_node_t& node, const virt
     return true;
 }
 
-BPE_API bool virtual_node_add_child(const virtual_node_t& node, const virtual_node_t& child)
+BS_API bool virtual_node_add_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     if (virtual_node_set_left_child(node, child)) {
         return true;
@@ -328,7 +328,7 @@ BPE_API bool virtual_node_add_child(const virtual_node_t& node, const virtual_no
     return false;
 }
 
-BPE_API bool virtual_node_remove_child(const virtual_node_t& node, const virtual_node_t& child)
+BS_API bool virtual_node_remove_child(const virtual_node_t& node, const virtual_node_t& child)
 {
     if (node.main_index != child.main_index) { return false; }
 
@@ -371,17 +371,17 @@ static inline void virtual_node_boolean_op(virtual_node_t& node1, const virtual_
     node1.inner_index = parent_index;
 }
 
-BPE_API void virtual_node_boolean_union(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API void virtual_node_boolean_union(virtual_node_t& node1, const virtual_node_t& node2)
 {
     virtual_node_boolean_op(node1, node2, eNodeOperation::unionOp);
 }
 
-BPE_API void virtual_node_boolean_intersect(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API void virtual_node_boolean_intersect(virtual_node_t& node1, const virtual_node_t& node2)
 {
     virtual_node_boolean_op(node1, node2, eNodeOperation::intersectionOp);
 }
 
-BPE_API void virtual_node_boolean_difference(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API void virtual_node_boolean_difference(virtual_node_t& node1, const virtual_node_t& node2)
 {
     virtual_node_boolean_op(node1, node2, eNodeOperation::differenceOp);
 }
@@ -441,13 +441,13 @@ void offset_primitive(primitive_node_t& node, const Eigen::Vector3d& offset)
     }
 }
 
-BPE_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& direction, const double length)
+BS_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& direction, const double length)
 {
     raw_vector3d_t offset = {direction.x * length, direction.y * length, direction.z * length};
     virtual_node_offset(node, offset);
 }
 
-BPE_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& offset)
+BS_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& offset)
 {
     Eigen::Map<const Eigen::Vector3d> offset_(&offset.x);
 
@@ -461,7 +461,7 @@ BPE_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& off
     }
 }
 
-BPE_API void virtual_node_split(virtual_node_t& node, raw_vector3d_t base_point, raw_vector3d_t normal)
+BS_API void virtual_node_split(virtual_node_t& node, raw_vector3d_t base_point, raw_vector3d_t normal)
 {
     plane_descriptor_t descriptor;
     descriptor.normal = raw_vector3d_t{normal.x * -1, normal.y * -1, normal.z * -1};

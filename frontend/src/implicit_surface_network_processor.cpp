@@ -8,6 +8,7 @@
 
 #include <globals.hpp>
 #include <internal_api.hpp>
+#include <primitive_process.hpp>
 
 #include <implicit_surface_network_processor.hpp>
 #include "Eigen/src/Core/Matrix.h"

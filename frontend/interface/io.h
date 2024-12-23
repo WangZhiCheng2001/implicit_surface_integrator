@@ -15,6 +15,15 @@ typedef struct {
 
 EXTERN_C_BEGIN
 
+// Basic Operations
+
+/**
+ * @brief Manually free the entire blobtree and all primitive nodes contained in it
+ */
+API void free_blobtree();
+
+// Tree Node Operations
+
 /**
  * @brief Create a new primitive body
  * @param[in] desc		The descriptor of the primitive, must be consistent with the type
@@ -67,8 +76,6 @@ API void virtual_node_offset_directly(virtual_node_t* node, const raw_vector3d_t
  * @param[in] normal	The normal of the split face
  */
 API void virtual_node_split(virtual_node_t* node, raw_vector3d_t base_point, raw_vector3d_t normal);
-
-// Tree Node Operations
 
 /**
  * @brief Sets the parent of a virtual node, a validity check will be performed

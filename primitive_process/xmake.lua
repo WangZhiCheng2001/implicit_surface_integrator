@@ -1,0 +1,11 @@
+internal_library("primitive_process", "PE", os.scriptdir())
+    add_rules("config.indirect_predicates.flags")
+    add_deps("shared_module")
+    add_deps("blobtree_structure")
+
+target("primitive_process.evaluation.performance_test")
+    set_kind("binary")
+    add_rules("config.indirect_predicates.flags")
+    add_deps("primitive_process")
+    add_files("./test/evaluation_performance_test.cpp")
+target_end()

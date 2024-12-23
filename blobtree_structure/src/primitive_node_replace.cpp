@@ -33,7 +33,7 @@ bool replace_primitive_node(const virtual_node_t& node,
 // ==================================================================================================
 
 #define PRIM_NODE_COPY_REPLACER(low_name, high_name, desc_constructor, aabb_initer)                                         \
-    BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const low_name##_descriptor_t& desc)            \
+    BS_API bool virtual_node_replace_primitive(const virtual_node_t& node, const low_name##_descriptor_t& desc)            \
     {                                                                                                                       \
         return replace_primitive_node<PRIMITIVE_TYPE_##high_name>(node,                                                     \
                                                                   desc,                                                     \
@@ -57,7 +57,7 @@ PRIM_NODE_COPY_REPLACER(extrude, EXTRUDE, extrude_desc_copy_constructor, extrude
 // ==================================================================================================
 
 #define PRIM_NODE_MOVE_REPLACER(low_name, high_name, desc_constructor, aabb_initer)                                         \
-    BPE_API bool virtual_node_replace_primitive(const virtual_node_t& node, const low_name##_descriptor_t&& desc)           \
+    BS_API bool virtual_node_replace_primitive(const virtual_node_t& node, const low_name##_descriptor_t&& desc)           \
     {                                                                                                                       \
         return replace_primitive_node<PRIMITIVE_TYPE_##high_name>(node,                                                     \
                                                                   desc,                                                     \

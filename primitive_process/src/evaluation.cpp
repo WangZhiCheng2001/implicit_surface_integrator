@@ -1,15 +1,39 @@
-#include "internal_api.hpp"
-#include "globals.hpp"
-#include "primitive_descriptor.h"
+#include <internal_api.hpp>
+
+#include "primitive_process.hpp"
+
+// =========================================================================================================================
+
+struct evaluation_routine_tag;
+struct closest_point_routine_tag;
+
+template <typename T>
+static constexpr bool is_process_routine_tag_v = false;
+
+template <>
+static constexpr bool is_process_routine_tag_v<evaluation_routine_tag> = true;
+
+template <>
+static constexpr bool is_process_routine_tag_v<closest_point_routine_tag> = true;
+
+template <typename T>
+static constexpr bool is_evaluation_routine_v = std::is_same_v<T, evaluation_routine_tag>;
+
+template <typename T>
+static constexpr bool is_closest_point_routine_v = std::is_same_v<T, closest_point_routine_tag>;
+
+// =========================================================================================================================
 
 inline auto vec3d_conversion(const raw_vector3d_t& p) { return Eigen::Map<const Eigen::Vector3d>(&p.x); }
 
 inline double sign(const double t) { return t >= 0.0 ? 1.0 : -1.0; }
 
-inline double triangle_sdf(const Eigen::Ref<const Eigen::Vector3d>& p,
-                           const Eigen::Ref<const Eigen::Vector3d>& a,
-                           const Eigen::Ref<const Eigen::Vector3d>& b,
-                           const Eigen::Ref<const Eigen::Vector3d>& c)
+template <typename Routine, typename = std::enable_if_t<is_process_routine_tag_v<Routine>>>
+inline auto triangle_sdf(Routine&&                                tag,
+                         const Eigen::Ref<const Eigen::Vector3d>& p,
+                         const Eigen::Ref<const Eigen::Vector3d>& a,
+                         const Eigen::Ref<const Eigen::Vector3d>& b,
+                         const Eigen::Ref<const Eigen::Vector3d>& c)
 {
     auto ba  = b - a;
     auto pa  = p - a;
@@ -19,17 +43,25 @@ inline double triangle_sdf(const Eigen::Ref<const Eigen::Vector3d>& p,
     auto pc  = p - c;
     auto nor = ba.cross(ac);
 
-    auto test1     = pa.dot(ba.cross(nor));
-    auto test2     = pb.dot(cb.cross(nor));
-    auto test3     = pc.dot(ac.cross(nor));
-    auto test_flag = sign(test1) + sign(test2) + sign(test3) < 2.0;
-    if (test_flag) {
-        auto val1 = (ba * std::clamp(ba.dot(pa) / ba.squaredNorm(), 0.0, 1.0) - pa).norm();
-        auto val2 = (cb * std::clamp(cb.dot(pb) / cb.squaredNorm(), 0.0, 1.0) - pb).norm();
-        auto val3 = (ac * std::clamp(ac.dot(pc) / ac.squaredNorm(), 0.0, 1.0) - pc).norm();
-        return std::min({val1, val2, val3});
+    Eigen::Vector3d test_vals = {sign(pa.dot(ba.cross(nor))), //
+                                 sign(pb.dot(cb.cross(nor))), //
+                                 sign(pc.dot(ac.cross(nor)))};
+    if (test_vals.sum() < 2.0) {
+        std::array closest_points = {a + ba * std::clamp(ba.dot(pa) / ba.squaredNorm(), 0.0, 1.0),
+                                     b + cb * std::clamp(cb.dot(pb) / cb.squaredNorm(), 0.0, 1.0),
+                                     c + ac * std::clamp(ac.dot(pc) / ac.squaredNorm(), 0.0, 1.0)};
+        std::array distance = {(closest_points[0] - p).norm(), (closest_points[1] - p).norm(), (closest_points[2] - p).norm()};
+        auto       min_iter = std::min_element(distance.begin(), distance.end());
+        if constexpr (is_evaluation_routine_v<Routine>)
+            return *min_iter;
+        else
+            return closest_points[std::distance(distance.begin(), min_iter)];
     } else {
-        return pa.dot(nor) / nor.norm();
+        auto distance = pa.dot(nor) / nor.norm();
+        if constexpr (is_evaluation_routine_v<Routine>)
+            return std::abs(distance);
+        else
+            return p - distance * nor.normalized();
     }
 }
 
@@ -55,19 +87,19 @@ static const auto x_direction = Eigen::Vector3d{1.0, 0.0, 0.0};
 
 // =========================================================================================================================
 
-double evaluate(const constant_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point) { return desc.value; }
+PE_API double evaluate(const constant_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point) { return desc.value; }
 
-double evaluate(const plane_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const plane_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     return vec3d_conversion(desc.normal).dot(point - vec3d_conversion(desc.point));
 }
 
-double evaluate(const sphere_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const sphere_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     return (point - vec3d_conversion(desc.center)).norm() - desc.radius;
 }
 
-double evaluate(const cylinder_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const cylinder_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     auto        bottom_center = vec3d_conversion(desc.bottom_origion);
     auto        offset        = vec3d_conversion(desc.offset);
@@ -85,7 +117,7 @@ double evaluate(const cylinder_descriptor_t& desc, const Eigen::Ref<const Eigen:
     return sign(d) * std::sqrt(abs(d)) / baba;
 }
 
-double evaluate(const cone_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const cone_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     Eigen::Vector3d ba = vec3d_conversion(desc.bottom_point) - vec3d_conversion(desc.top_point);
     Eigen::Vector3d pa = point - vec3d_conversion(desc.bottom_point);
@@ -105,7 +137,7 @@ double evaluate(const cone_descriptor_t& desc, const Eigen::Ref<const Eigen::Vec
     return s * std::sqrt(std::min(cax * cax + cay * cay * baba, cbx * cbx + cby * cby * baba));
 }
 
-double evaluate(const box_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const box_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     // HINT: this method is not ACCURATE for OUTSIDE OF THE BOX, but it saves time
     auto            center    = vec3d_conversion(desc.center);
@@ -114,12 +146,12 @@ double evaluate(const box_descriptor_t& desc, const Eigen::Ref<const Eigen::Vect
     return d.maxCoeff();
 }
 
-double evaluate(const mesh_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(const mesh_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
     // Note: There is no check for out-of-bounds access to points, indexes and faces
-    auto points = desc.points;
+    auto points  = desc.points;
     auto indices = desc.indices;
-    auto face   = desc.faces;
+    auto face    = desc.faces;
 
     double   min_distance{std::numeric_limits<double>::infinity()};
     uint32_t count{};
@@ -148,73 +180,9 @@ double evaluate(const mesh_descriptor_t& desc, const Eigen::Ref<const Eigen::Vec
     }
 }
 
-double evaluate(const extrude_descriptor_t& desc, const Eigen::Ref<const Eigen::Vector3d>& point)
+PE_API double evaluate(uint32_t index, const Eigen::Ref<const Eigen::Vector3d>& point)
 {
-    // Note: There is no check for out-of-bounds access to points and bulges
-    auto points   = desc.points;
-    auto bulges   = desc.bulges;
-    auto extusion = vec3d_conversion(desc.extusion);
-
-    double   min_distance{std::numeric_limits<double>::infinity()};
-    uint32_t count{};
-
-    // Note: Currently only straight edges are considered, the bottom and top surfaces are polygons
-    auto point0 = vec3d_conversion(points[0]);
-    bool flag1{}, flag2{};
-    for (auto i = 1; i < desc.edges_number - 1; i++) {
-        auto   point1 = vec3d_conversion(points[i]);
-        auto   point2 = vec3d_conversion(points[i + 1]);
-        // Bottom
-        double temp   = triangle_sdf(point, point0, point1, point2);
-        min_distance  = std::min(min_distance, temp);
-        if (!flag1 && ray_intersects_triangle(point, x_direction, point0, point1, point2)) { flag1 = true; }
-
-        // Top
-        temp         = triangle_sdf(point, point0 + extusion, point1 + extusion, point2 + extusion);
-        min_distance = std::min(min_distance, temp);
-        if (!flag2 && ray_intersects_triangle(point, x_direction, point0 + extusion, point1 + extusion, point2 + extusion)) {
-            flag2 = true;
-        }
-    }
-    if (flag1) { count++; }
-    if (flag2) { count++; }
-
-    // Side
-    for (auto i = 0; i < desc.edges_number; i++) {
-        auto point1 = vec3d_conversion(points[i]);
-        auto point2 = (i + 1 == desc.edges_number) ? point0 : vec3d_conversion(points[i + 1]);
-        auto point3 = point2 + extusion;
-        auto point4 = point1 + extusion;
-
-        auto bulge = bulges[i];
-        if (abs(bulge) < 1e-8) {
-            // Straight Edge
-            bool flag = false;
-
-            double temp  = triangle_sdf(point, point1, point2, point3);
-            min_distance = fmin(min_distance, temp);
-            if (!flag && ray_intersects_triangle(point, x_direction, point1, point2, point3)) { flag = true; }
-
-            temp         = triangle_sdf(point, point1, point3, point4);
-            min_distance = fmin(min_distance, temp);
-            if (!flag && ray_intersects_triangle(point, x_direction, point1, point3, point4)) { flag = true; }
-
-            if (flag) { count++; }
-        } else {
-            // Curved Edge
-            // TODO
-        }
-    }
-    if (count % 2 == 1) {
-        return -min_distance;
-    } else {
-        return min_distance;
-    }
-}
-
-BPE_API double evaluate(uint32_t index, const Eigen::Ref<const Eigen::Vector3d>& point)
-{
-    const auto& primitive = primitives[index];
+    const auto& primitive = get_primitive_node(index);
     switch (primitive.type) {
         case PRIMITIVE_TYPE_CONSTANT: return evaluate(*(const constant_descriptor_t*)primitive.desc, point);
         case PRIMITIVE_TYPE_PLANE:    return evaluate(*(const plane_descriptor_t*)primitive.desc, point);

@@ -28,7 +28,7 @@ BS_API size_t blobtree_get_node_count(uint32_t index) noexcept;
 BS_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> blobtree_get_leaf_nodes(uint32_t index) noexcept;
 BS_API node_t&                                             blobtree_get_node(const virtual_node_t& node) noexcept;
 
-BS_API size_t                  get_primitive_count() noexcept;
+BS_API size_t                  get_primitive_count(const virtual_node_t& tree_node) noexcept;
 BS_API const primitive_node_t& get_primitive_node(uint32_t index) noexcept;
 BS_API const aabb_t&           get_aabb(uint32_t index) noexcept;
 
@@ -64,12 +64,21 @@ BS_API void blobtree_free_virtual_node(const virtual_node_t& node);
 
 // Geometry Operations
 
-BS_API void virtual_node_boolean_union(virtual_node_t& node1, const virtual_node_t& node2);
-BS_API void virtual_node_boolean_intersect(virtual_node_t& node1, const virtual_node_t& node2);
-BS_API void virtual_node_boolean_difference(virtual_node_t& node1, const virtual_node_t& node2);
-BS_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& direction, const double length);
-BS_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& offset);
-BS_API void virtual_node_split(virtual_node_t& node, raw_vector3d_t base_point, raw_vector3d_t normal);
+BS_API virtual_node_t virtual_node_boolean_union(const virtual_node_t& node1,
+                                                 const virtual_node_t& node2,
+                                                 const bool            keep1 = false,
+                                                 const bool            keep2 = false);
+BS_API virtual_node_t virtual_node_boolean_intersect(const virtual_node_t& node1,
+                                                     const virtual_node_t& node2,
+                                                     const bool            keep1 = false,
+                                                     const bool            keep2 = false);
+BS_API virtual_node_t virtual_node_boolean_difference(const virtual_node_t& node1,
+                                                      const virtual_node_t& node2,
+                                                      const bool            keep1 = false,
+                                                      const bool            keep2 = false);
+BS_API void           virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& direction, const double length);
+BS_API void           virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& offset);
+BS_API void           virtual_node_split(virtual_node_t& node, raw_vector3d_t base_point, raw_vector3d_t normal);
 
 // Tree Node Operations
 

@@ -14,6 +14,7 @@ virtual_node_t push_primitive_node(primitive_node_t&& primitive_node, const aabb
 {
     aabbs.emplace_back(aabb);
     primitives.emplace_back(primitive_node);
+    counter.emplace_back(1);
 
     node_t node                      = standard_new_node;
     node_fetch_primitive_index(node) = static_cast<uint32_t>(primitives.size() - 1);
@@ -44,7 +45,7 @@ BS_API void blobtree_free_virtual_node(const virtual_node_t& node) { free_sub_bl
 // ==================================================================================================
 
 #define PRIM_NODE_COPY_CONSTRUCTOR(low_name, high_name, desc_constructor, aabb_initer)                                     \
-    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t& desc)                                  \
+    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t& desc)                                   \
     {                                                                                                                      \
         return insert_primitive_node<PRIMITIVE_TYPE_##high_name>(desc,                                                     \
                                                                  std::bind(desc_constructor, desc, std::placeholders::_1), \
@@ -67,7 +68,7 @@ PRIM_NODE_COPY_CONSTRUCTOR(extrude, EXTRUDE, extrude_desc_copy_constructor, extr
 // ==================================================================================================
 
 #define PRIM_NODE_MOVE_CONSTRUCTOR(low_name, high_name, desc_constructor, aabb_initer)                                     \
-    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t&& desc)                                 \
+    BS_API virtual_node_t blobtree_new_virtual_node(const low_name##_descriptor_t&& desc)                                  \
     {                                                                                                                      \
         return insert_primitive_node<PRIMITIVE_TYPE_##high_name>(desc,                                                     \
                                                                  std::bind(desc_constructor, desc, std::placeholders::_1), \

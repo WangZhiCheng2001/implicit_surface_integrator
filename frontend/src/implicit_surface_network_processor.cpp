@@ -55,9 +55,11 @@ solve_result_t ImplicitSurfaceNetworkProcessor::run(const virtual_node_t& tree_n
         return {};
     }
 
-    const auto num_vert  = background_vertices.size();
-    const auto num_tets  = background_indices.size();
-    const auto num_funcs = get_primitive_count();
+    const auto num_vert   = background_vertices.size();
+    const auto num_tets   = background_indices.size();
+    const auto num_funcs  = get_primitive_count(tree_node);
+    const auto all_funcs  = get_all_primitive_index(tree_node);
+    const auto all_offset = get_all_primitive_offset(tree_node);
 
     // temporary geometry results
     stl_vector_mp<polygon_face_t>          iso_faces{}; ///< Polygonal faces at the surface network mesh
@@ -86,7 +88,7 @@ solve_result_t ImplicitSurfaceNetworkProcessor::run(const virtual_node_t& tree_n
         for (uint32_t i = 0; i < num_vert; ++i) {
             const auto& point = background_vertices[i];
             for (uint32_t j = 0; j < num_funcs; ++j) {
-                vertex_scalar_values[i][j] = evaluate(j, point);
+                vertex_scalar_values[i][j] = evaluate(all_funcs[j], point - all_offset[j]);
                 const auto sign            = scalar_field_sign(vertex_scalar_values[i][j]);
                 switch (sign) {
                     case -1: is_negative_scalar_field_sign[i * num_funcs + j] = true; break;

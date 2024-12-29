@@ -163,28 +163,36 @@ static constexpr inline auto node_fetch_operation(node_t& node) { return node_pr
 static constexpr inline auto node_fetch_in_out(node_t& node) { return node_proxy<eNodeLocation>(node, 123u, 2); }
 
 // If primitive node, the index to the primitive information
-static constexpr inline auto node_fetch_primitive_index(node_t& node) { return node_proxy<uint32_t>(node, 96u, 24); }
+static constexpr inline auto node_fetch_primitive_index(node_t& node) { return node_proxy<uint32_t>(node, 102u, 21); }
+
+// If primitive node, the index to the transform information
+static constexpr inline auto node_fetch_transform_index(node_t& node) { return node_proxy<uint32_t>(node, 81u, 21); }
+
+static constexpr inline auto node_is_transform_null(const node_t& node)
+{
+    return const_node_proxy<uint32_t>(node, 81u, 21) == 0x1FFFFFu;
+}
 
 // Parent node index
-static constexpr inline auto node_fetch_parent_index(node_t& node) { return node_proxy<uint32_t>(node, 64u, 32); }
+static constexpr inline auto node_fetch_parent_index(node_t& node) { return node_proxy<uint32_t>(node, 54u, 27); }
 
 static constexpr inline auto node_is_parent_null(const node_t& node)
 {
-    return const_node_proxy<uint32_t>(node, 64u, 32) == 0xFFFFFFFFu;
+    return const_node_proxy<uint32_t>(node, 54u, 27) == 0x7FFFFFFu;
 }
 
 // Left child node index
-static constexpr inline auto node_fetch_left_child_index(node_t& node) { return node_proxy<uint32_t>(node, 32u, 32); }
+static constexpr inline auto node_fetch_left_child_index(node_t& node) { return node_proxy<uint32_t>(node, 27u, 27); }
 
 static constexpr inline auto node_is_left_child_null(const node_t& node)
 {
-    return const_node_proxy<uint32_t>(node, 32u, 32) == 0xFFFFFFFFu;
+    return const_node_proxy<uint32_t>(node, 27u, 27) == 0x7FFFFFFu;
 }
 
 // Right child node index
-static constexpr inline auto node_fetch_right_child_index(node_t& node) { return node_proxy<uint32_t>(node, 0u, 32); }
+static constexpr inline auto node_fetch_right_child_index(node_t& node) { return node_proxy<uint32_t>(node, 0u, 27); }
 
 static constexpr inline auto node_is_right_child_null(const node_t& node)
 {
-    return const_node_proxy<uint32_t>(node, 0u, 32) == 0xFFFFFFFFu;
+    return const_node_proxy<uint32_t>(node, 0u, 27) == 0x7FFFFFFu;
 }

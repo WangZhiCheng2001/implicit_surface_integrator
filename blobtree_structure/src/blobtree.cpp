@@ -6,9 +6,13 @@
 #include "primitive_node_destroyer.hpp"
 
 /* internal global variables for blobtree */
-std::vector<blobtree_t, tbb::tbb_allocator<blobtree_t>>                  structures{};
-std::vector<aabb_t, tbb::tbb_allocator<aabb_t>>                          aabbs{};
-std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>>      primitives{};
+std::vector<blobtree_t, tbb::tbb_allocator<blobtree_t>> structures{};
+std::vector<bool, tbb::tbb_allocator<bool>>             use_mark{};
+
+std::vector<primitive_node_t, tbb::tbb_allocator<primitive_node_t>> primitives{};
+std::vector<aabb_t, tbb::tbb_allocator<aabb_t>>                     aabbs{};
+std::vector<uint32_t, tbb::tbb_allocator<uint32_t>>                 counter{};
+
 std::stack<uint32_t, std::deque<uint32_t, tbb::tbb_allocator<uint32_t>>> free_structure_list{};
 
 /* =============================================================================================
@@ -27,10 +31,34 @@ BS_API node_t& blobtree_get_node(const virtual_node_t& node) noexcept
     return structures[node.main_index].nodes[node.inner_index];
 }
 
-BS_API size_t get_primitive_count() noexcept
+BS_API size_t get_primitive_count(const virtual_node_t& tree_node) noexcept
 {
     assert(primitives.size() == aabbs.size());
-    return primitives.size();
+    return structures[tree_node.main_index].leaf_index.size();
+}
+
+BS_API std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> get_all_primitive_index(const virtual_node_t& tree_node)
+{
+    std::vector<uint32_t, tbb::tbb_allocator<uint32_t>> result;
+    auto&                                               tree = structures[tree_node.main_index];
+    for (auto& index : tree.leaf_index) { result.push_back(node_fetch_primitive_index(tree.nodes[index])); }
+    return std::move(result);
+}
+
+BS_API std::vector<Eigen::Vector3d, tbb::tbb_allocator<Eigen::Vector3d>> get_all_primitive_offset(
+    const virtual_node_t& tree_node)
+{
+    std::vector<Eigen::Vector3d, tbb::tbb_allocator<Eigen::Vector3d>> result;
+    auto&                                                             tree = structures[tree_node.main_index];
+    for (auto& index : tree.leaf_index) {
+        auto& node = tree.nodes[index];
+        if (node_is_transform_null(node)) {
+            result.push_back(Eigen::Vector3d{0.0, 0.0, 0.0});
+        } else {
+            result.push_back(tree.transform[node_fetch_transform_index(node)].block<3, 1>(0, 3));
+        }
+    }
+    return std::move(result);
 }
 
 BS_API const primitive_node_t& get_primitive_node(uint32_t index) noexcept
@@ -47,21 +75,50 @@ BS_API const aabb_t& get_aabb(uint32_t index) noexcept
 
 void shrink_primitives() { primitives.shrink_to_fit(); }
 
+uint32_t get_next_available_blobtree_index()
+{
+    auto index = std::find(use_mark.begin(), use_mark.end(), false);
+    if (index == use_mark.end()) {
+        structures.resize(structures.size() + 1);
+        use_mark.push_back(false);
+        return structures.size() - 1;
+    } else {
+        return *index;
+    }
+}
+
+void blobtree_merge_update_index(blobtree_t& old_tree, virtual_node_t new_node)
+{
+    const auto size = static_cast<uint32_t>(structures[new_node.main_index].nodes.size());
+    for (uint32_t i = 0; i < old_tree.nodes.size(); i++) {
+        if (!node_is_parent_null(old_tree.nodes[i])) node_fetch_parent_index(old_tree.nodes[i]) += size;
+        if (!node_is_left_child_null(old_tree.nodes[i])) node_fetch_left_child_index(old_tree.nodes[i]) += size;
+        if (!node_is_right_child_null(old_tree.nodes[i])) node_fetch_right_child_index(old_tree.nodes[i]) += size;
+    }
+    for (uint32_t i = 0; i < old_tree.leaf_index.size(); i++) { old_tree.leaf_index[i] += size; }
+
+    const auto transform_size = static_cast<uint32_t>(structures[new_node.main_index].transform.size());
+    for (uint32_t i = 0; i < old_tree.leaf_index.size(); i++) {
+        if (!node_is_transform_null(old_tree.nodes[old_tree.leaf_index[i]])) {
+            node_fetch_transform_index(old_tree.nodes[old_tree.leaf_index[i]]) += transform_size;
+        }
+    }
+}
+
 virtual_node_t copy(virtual_node_t old_node, virtual_node_t new_node)
 {
     assert(old_node.main_index != new_node.main_index);
+    // Incrementing the reference count
+    for (auto& index : structures[old_node.main_index].leaf_index) {
+        counter[node_fetch_primitive_index(structures[old_node.main_index].nodes[index])]++;
+    }
 
     // Copy a tree and its subtrees to a temporary tree
-    auto temp = structures[old_node.main_index];
+    const auto size = static_cast<uint32_t>(structures[new_node.main_index].nodes.size());
+    auto       temp = structures[old_node.main_index];
 
     // Update all index
-    const auto size = static_cast<uint32_t>(structures[new_node.main_index].nodes.size());
-    for (uint32_t i = 0; i < temp.nodes.size(); i++) {
-        if (!node_is_parent_null(temp.nodes[i])) node_fetch_parent_index(temp.nodes[i]) += size;
-        if (!node_is_left_child_null(temp.nodes[i])) node_fetch_left_child_index(temp.nodes[i]) += size;
-        if (!node_is_right_child_null(temp.nodes[i])) node_fetch_right_child_index(temp.nodes[i]) += size;
-    }
-    for (uint32_t i = 0; i < temp.leaf_index.size(); i++) { temp.leaf_index[i] += size; }
+    blobtree_merge_update_index(temp, new_node);
 
     // Copy the updated index tree to the array at the new location
     structures[new_node.main_index].nodes.insert(structures[new_node.main_index].nodes.end(),
@@ -70,6 +127,34 @@ virtual_node_t copy(virtual_node_t old_node, virtual_node_t new_node)
     structures[new_node.main_index].leaf_index.insert(structures[new_node.main_index].leaf_index.end(),
                                                       temp.leaf_index.begin(),
                                                       temp.leaf_index.end());
+    structures[new_node.main_index].transform.insert(structures[new_node.main_index].transform.end(),
+                                                     temp.transform.begin(),
+                                                     temp.transform.end());
+
+    return virtual_node_t{new_node.main_index, old_node.inner_index + size};
+}
+
+virtual_node_t move(virtual_node_t old_node, virtual_node_t new_node)
+{
+    assert(old_node.main_index != new_node.main_index);
+
+    // Get a reference of a tree and its subtrees
+    const auto size = static_cast<uint32_t>(structures[new_node.main_index].nodes.size());
+    auto&      old  = structures[old_node.main_index];
+
+    // Update all index
+    blobtree_merge_update_index(old, new_node);
+
+    // Mode the updated index tree to the array at the new location
+    structures[new_node.main_index].nodes.insert(structures[new_node.main_index].nodes.end(),
+                                                 std::make_move_iterator(old.nodes.begin()),
+                                                 std::make_move_iterator(old.nodes.end()));
+    structures[new_node.main_index].leaf_index.insert(structures[new_node.main_index].leaf_index.end(),
+                                                      std::make_move_iterator(old.leaf_index.begin()),
+                                                      std::make_move_iterator(old.leaf_index.end()));
+    structures[new_node.main_index].transform.insert(structures[new_node.main_index].transform.end(),
+                                                     std::make_move_iterator(old.transform.begin()),
+                                                     std::make_move_iterator(old.transform.end()));
 
     return virtual_node_t{new_node.main_index, old_node.inner_index + size};
 }
@@ -78,6 +163,18 @@ BS_API void free_sub_blobtree(uint32_t index) noexcept
 {
     // 这里尽量打标记，延迟修改和删除
     free_structure_list.push(index);
+}
+
+BS_API void free_blobtree(virtual_node_t node)
+{
+    use_mark[node.main_index] = false;
+    auto& tree                = structures[node.main_index];
+
+    for (auto& index : tree.leaf_index) { counter[node_fetch_primitive_index(tree.nodes[index])]--; }
+
+    tree.leaf_index.clear();
+    tree.nodes.clear();
+    tree.transform.clear();
 }
 
 BS_API void clear_blobtree() noexcept
@@ -108,7 +205,8 @@ BS_API void clear_blobtree() noexcept
 //             case eNodeOperation::unionOp: {
 //                 if (left_child_in_out_flag == eNodeLocation::in || right_child_in_out_flag == eNodeLocation::in) {
 //                     node_in_out_flag = eNodeLocation::in;
-//                 } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag == eNodeLocation::out) {
+//                 } else if (left_child_in_out_flag == eNodeLocation::out && right_child_in_out_flag ==
+//                 eNodeLocation::out) {
 //                     node_in_out_flag = eNodeLocation::out;
 //                 } else {
 //                     return false;
@@ -118,7 +216,8 @@ BS_API void clear_blobtree() noexcept
 //             case eNodeOperation::intersectionOp: {
 //                 if (left_child_in_out_flag == eNodeLocation::in && right_child_in_out_flag == eNodeLocation::in) {
 //                     node_in_out_flag = eNodeLocation::in;
-//                 } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag == eNodeLocation::out) {
+//                 } else if (left_child_in_out_flag == eNodeLocation::out || right_child_in_out_flag ==
+//                 eNodeLocation::out) {
 //                     node_in_out_flag = eNodeLocation::out;
 //                 } else {
 //                     return false;
@@ -353,91 +452,81 @@ BS_API bool virtual_node_remove_child(const virtual_node_t& node, const virtual_
  * geometry operations
  * ============================================================================================= */
 
-static inline void virtual_node_boolean_op(virtual_node_t& node1, const virtual_node_t& node2, eNodeOperation op)
+static inline virtual_node_t virtual_node_boolean_op(virtual_node_t&       node1,
+                                                     const virtual_node_t& node2,
+                                                     eNodeOperation        op,
+                                                     const bool            keep1 = false,
+                                                     const bool            keep2 = false)
 {
-    auto new_node2 = copy(node2, node1);
+    virtual_node_t new_node1, new_node2, result_node;
 
-    auto& inserted_node                         = structures[node1.main_index].nodes.emplace_back(standard_new_node);
+    if (keep1 && keep2) {
+        new_node1.main_index           = get_next_available_blobtree_index();
+        new_node1.inner_index          = 0;
+        new_node1                      = copy(node1, new_node1);
+        new_node2                      = copy(new_node2, new_node1);
+        use_mark[new_node1.main_index] = true;
+    } else if (keep1) {
+        new_node2 = node2;
+        new_node1 = copy(node1, node2);
+    } else if (keep2) {
+        new_node1 = node1;
+        new_node2 = copy(node1, node2);
+    } else {
+        new_node1 = node1;
+        new_node2 = move(node1, node2);
+    }
+
+    auto& inserted_node                         = structures[new_node1.main_index].nodes.emplace_back(standard_new_node);
     node_fetch_is_primitive(inserted_node)      = false;
     // weird bug: need to force cast, or it will be treated as uint32_t instead of eNodeOperation
     node_fetch_operation(inserted_node)         = (eNodeOperation)op;
-    node_fetch_left_child_index(inserted_node)  = node1.inner_index;
+    node_fetch_left_child_index(inserted_node)  = new_node1.inner_index;
     node_fetch_right_child_index(inserted_node) = new_node2.inner_index;
 
-    uint32_t parent_index = structures[node1.main_index].nodes.size() - 1;
-    node_fetch_parent_index(structures[node1.main_index].nodes[node1.inner_index])         = parent_index;
+    uint32_t parent_index = structures[new_node1.main_index].nodes.size() - 1;
+    node_fetch_parent_index(structures[new_node1.main_index].nodes[new_node1.inner_index]) = parent_index;
     node_fetch_parent_index(structures[new_node2.main_index].nodes[new_node2.inner_index]) = parent_index;
 
-    node1.inner_index = parent_index;
+    result_node.main_index  = new_node1.main_index;
+    result_node.inner_index = parent_index;
+
+    return result_node;
 }
 
-BS_API void virtual_node_boolean_union(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API virtual_node_t virtual_node_boolean_union(virtual_node_t&       node1,
+                                                 const virtual_node_t& node2,
+                                                 const bool            keep1 = false,
+                                                 const bool            keep2 = false)
 {
-    virtual_node_boolean_op(node1, node2, eNodeOperation::unionOp);
+    return virtual_node_boolean_op(node1, node2, eNodeOperation::unionOp, keep1, keep2);
 }
 
-BS_API void virtual_node_boolean_intersect(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API virtual_node_t virtual_node_boolean_intersect(virtual_node_t&       node1,
+                                                     const virtual_node_t& node2,
+                                                     const bool            keep1 = false,
+                                                     const bool            keep2 = false)
 {
-    virtual_node_boolean_op(node1, node2, eNodeOperation::intersectionOp);
+    return virtual_node_boolean_op(node1, node2, eNodeOperation::intersectionOp, keep1, keep2);
 }
 
-BS_API void virtual_node_boolean_difference(virtual_node_t& node1, const virtual_node_t& node2)
+BS_API virtual_node_t virtual_node_boolean_difference(virtual_node_t&       node1,
+                                                      const virtual_node_t& node2,
+                                                      const bool            keep1 = false,
+                                                      const bool            keep2 = false)
 {
-    virtual_node_boolean_op(node1, node2, eNodeOperation::differenceOp);
+    return virtual_node_boolean_op(node1, node2, eNodeOperation::differenceOp, keep1, keep2);
 }
 
-void offset_primitive(primitive_node_t& node, const Eigen::Vector3d& offset)
+void offset_primitive_node(virtual_node_t& tree, node_t& primitive_node, const Eigen::Vector3d& offset)
 {
-    auto offset_point = [](raw_vector3d_t& point, const Eigen::Vector3d& offset) {
-        Eigen::Map<Eigen::Vector3d> point_map(&point.x);
-        point_map += offset;
-    };
-
-    auto type = node.type;
-    switch (type) {
-        case PRIMITIVE_TYPE_CONSTANT: {
-            break;
-        }
-        case PRIMITIVE_TYPE_PLANE: {
-            auto desc = static_cast<plane_descriptor_t*>(node.desc);
-            offset_point(desc->point, offset);
-            break;
-        }
-        case PRIMITIVE_TYPE_SPHERE: {
-            auto desc = static_cast<sphere_descriptor_t*>(node.desc);
-            offset_point(desc->center, offset);
-            break;
-        }
-        case PRIMITIVE_TYPE_CYLINDER: {
-            auto desc = static_cast<cylinder_descriptor_t*>(node.desc);
-            offset_point(desc->bottom_origion, offset);
-            break;
-        }
-        case PRIMITIVE_TYPE_CONE: {
-            auto desc = static_cast<cone_descriptor_t*>(node.desc);
-            offset_point(desc->top_point, offset);
-            offset_point(desc->bottom_point, offset);
-            break;
-        }
-        case PRIMITIVE_TYPE_BOX: {
-            auto desc = static_cast<box_descriptor_t*>(node.desc);
-            offset_point(desc->center, offset);
-
-            break;
-        }
-        case PRIMITIVE_TYPE_MESH: {
-            auto desc = static_cast<mesh_descriptor_t*>(node.desc);
-            for (int i = 0; i < desc->point_number; i++) { offset_point(desc->points[i], offset); }
-            break;
-        }
-        case PRIMITIVE_TYPE_EXTRUDE: {
-            auto desc = static_cast<extrude_descriptor_t*>(node.desc);
-            for (int i = 0; i < desc->edges_number; i++) { offset_point(desc->points[i], offset); }
-            break;
-        }
-        default: {
-            break;
-        }
+    if (node_is_transform_null(primitive_node)) {
+        Eigen::Matrix4d transform   = Eigen::Matrix4d::Identity();
+        transform.block<3, 1>(0, 3) = offset;
+        structures[tree.main_index].transform.push_back(transform);
+        node_fetch_transform_index(primitive_node) = structures[tree.main_index].transform.size() - 1;
+    } else {
+        structures[tree.main_index].transform[node_fetch_transform_index(primitive_node)].block<3, 1>(0, 3) += offset;
     }
 }
 
@@ -451,13 +540,9 @@ BS_API void virtual_node_offset(virtual_node_t& node, const raw_vector3d_t& offs
 {
     Eigen::Map<const Eigen::Vector3d> offset_(&offset.x);
 
-    auto& all_leaf = structures[node.main_index].leaf_index;
     for (const auto& leaf_index : structures[node.main_index].leaf_index) {
-        auto&          primitive_node  = structures[node.main_index].nodes[leaf_index];
-        const uint32_t primitive_index = node_fetch_primitive_index(primitive_node);
-
-        offset_primitive(primitives[primitive_index], offset_);
-        aabbs[primitive_index].offset(offset_);
+        auto& primitive_node = structures[node.main_index].nodes[leaf_index];
+        offset_primitive_node(node, primitive_node, offset_);
     }
 }
 
